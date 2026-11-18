@@ -802,3 +802,4 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 - `dexie-cloud.json`・`dexie-cloud.key`（秘密の鍵）は .gitignore 済み。Mac の作業フォルダにだけ置く
 - 公開 URL を増やす時は `~/.volta/bin/npx dexie-cloud whitelist <URL>`（この Mac は `~/.local/bin/npx` が壊れているため Volta の npx を使う）
 - 版上げは `node tools/release.mjs <版>`（10章）
+- 新しくログインしたユーザーは「お試しユーザー」（使った日が30日で同期が止まる）。`node tools/dexie-cloud-prod.mjs <メール>` で本番ユーザーにする（無料プランは3人まで。dexie-cloud.key を読んで REST API の /users に type: 'prod' を送る）
