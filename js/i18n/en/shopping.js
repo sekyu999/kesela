@@ -46,8 +46,8 @@ export default {
     'Last backup was {days} days ago. Save one in Settings ›',
   '指定なし（標準の並び）': 'Any (default order)',
   'リストは空です。': 'The list is empty.',
-  '在庫を見直してから「リストを更新」を押すと、足りない物が入ります。':
-    'Check your stock, then tap “Update list” to add what’s running low.',
+  '在庫タブで在庫を見直して「見直し完了」を押すと、足りない物が入ります。':
+    'Check your stock in the Stock tab and tap “Done” to add what’s running low.',
   '{n}品目': 'Items: {n}',
   手動: 'Manual',
   健康提案: 'Health tip',

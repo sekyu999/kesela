@@ -118,15 +118,13 @@ function renderCompare(body) {
         }
         const best = cmp.rows.filter((r) => r.cheapest);
         const top = best[0];
-        const value =
-          cmp.mode === 'unit'
-            ? `${esc(unitLabel(top.unit))} ${money(top.unit.value)}`
-            : `${esc(t('1{unit}', { unit: t(p.inventoryUnit) }))} ${money(top.perItem)}`;
+        // そのままの値段（1パックの値段）がメイン。100gあたりなどは小さく「/100g」で添える
         return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
-          <span class="grow">
+          <span class="grow compare-main">
             <span class="item-name item-name-sm">${esc(p.name)}</span>
-            <span class="price-line">${t('最安')} <strong>${best.map((b) => esc(storeName.get(b.storeId) ?? t('削除された店舗'))).join(t('・'))}</strong> ${value}</span>
+            <span class="price-line">${t('最安')} <strong>${best.map((b) => esc(storeName.get(b.storeId) ?? t('削除された店舗'))).join(t('・'))}</strong></span>
           </span>
+          ${priceBlock(top, p)}
           <span class="note">›</span></button></li>`;
       };
 
@@ -193,16 +191,14 @@ async function openProductPriceSheet(productId) {
             <ul class="list">
               ${cmp.rows
                 .map((r) => {
-                  const main = cmp.mode === 'unit' ? money(r.unit.value) : money(r.perItem);
-                  const mainLabel = cmp.mode === 'unit' ? esc(unitLabel(r.unit)) : t('1{unit}あたり', { unit });
                   const name = storeName.get(r.storeId) ?? t('削除された店舗');
                   return `<li class="compare-row record-row ${r.cheapest ? 'is-cheapest' : ''}">
                     <button type="button" class="row-button grow" data-store-edit="${esc(r.storeId)}" aria-label="${esc(t('{store}の価格を直す', { store: name }))}">
                       <span class="grow compare-main">
                         <span class="item-name item-name-sm">${esc(name)}${r.cheapest ? `<span class="badge">${t('最安')}</span>` : ''}</span>
-                        <span class="note">${recordLabel(r.record, unit)}</span>
+                        ${r.record.packageContent ? `<span class="note">${contentLabel(r.record)}</span>` : ''}
                       </span>
-                      <span class="compare-price"><small>${mainLabel}</small>${main}</span>
+                      ${priceBlock(r, p)}
                     </button>
                     <button type="button" class="icon-btn" data-store-del="${esc(r.storeId)}" aria-label="${esc(t('{store}の価格を削除', { store: name }))}">${t('削除')}</button>
                   </li>`;
@@ -216,18 +212,31 @@ async function openProductPriceSheet(productId) {
   );
 }
 
-/** 単位価格の見出し（100gあたり・1個あたり）。英語では per 100g・per pc */
+/** 比べ方の説明文で使う見出し（100gあたり・1個あたり）。英語では per 100g・per pc */
 function unitLabel(u) {
   const base = UNIT_BASE[u.unit];
   return base === 1 ? t('1{unit}あたり', { unit: t(u.unit) }) : t('{amount}{unit}あたり', { amount: base, unit: t(u.unit) });
 }
 
-/** 「1パック 228円・500g」。unit はエスケープ済みの管理単位。v1.10 までの記録（合計＋数量）は1つあたりに直す */
-function recordLabel(r, unit) {
-  const content = r.packageContent
-    ? t('・{amount}{unit}', { amount: r.packageContent.toLocaleString('ja-JP'), unit: esc(t(r.packageContentUnit)) })
-    : '';
-  return t('1{unit} {price}{content}', { unit, price: money(Math.round(r.price / (r.quantity || 1))), content });
+/** 「/100g」「/個」。英語では /100g・/pc */
+function slashUnit(u) {
+  const base = UNIT_BASE[u.unit];
+  return `/${base === 1 ? '' : base}${t(u.unit)}`;
+}
+
+/** 内容量「1,000g」 */
+function contentLabel(r) {
+  return `${r.packageContent.toLocaleString('ja-JP')}${esc(t(r.packageContentUnit))}`;
+}
+
+/**
+ * 価格の表示：そのままの値段「780円/パック」が大きく、内容量があれば「78円/100g」を小さく下に。
+ * row は compareStores() の行（perItem・unit）。v1.10 までの記録（合計＋数量）も perItem で1つあたりになる
+ */
+function priceBlock(row, product) {
+  const per = `/${esc(t(product.inventoryUnit))}`;
+  const sub = row.unit ? `<span class="compare-sub">${money(row.unit.value)}${esc(slashUnit(row.unit))}</span>` : '';
+  return `<span class="compare-price"><span class="compare-main-price">${money(Math.round(row.perItem))}<small>${per}</small></span>${sub}</span>`;
 }
 
 // ===================== 店舗 =====================

@@ -1,13 +1,12 @@
 // ② 在庫・商品管理
 // ・カテゴリ別に商品を表示し、± で現在庫をその場で変える
-// ・🛒ボタンでその商品を買い物リストへ入れる
 // ・商品名をタップすると編集シート、右下の「＋ 商品」で登録シート
 import { watch } from '../ui/live.js';
 import { toast } from '../ui/toast.js';
 import { listCategories } from '../data/categoryRepo.js';
 import { listProducts, changeStock, clearAllSuppression, saveProductOrder } from '../data/productRepo.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
-import { refreshFromStock, listItems, addProductToList, removeProductFromList } from '../data/shoppingRepo.js';
+import { refreshFromStock } from '../data/shoppingRepo.js';
 import { shortage } from '../domain/product.js';
 import { formatStock } from '../domain/consumption.js';
 import { openProductSheet } from './productSheet.js';
@@ -28,7 +27,6 @@ export function mount(el) {
   `;
   const groupsEl = el.querySelector('#stock-groups');
   const reviewEl = el.querySelector('#review-done');
-  let inList = new Set();
 
   el.addEventListener('click', async (e) => {
     const target = e.target.closest('[data-action]');
@@ -47,16 +45,6 @@ export function mount(el) {
       case 'dec':
         changeStock(id, -1);
         break;
-      case 'to-list': {
-        if (inList.has(id)) {
-          await removeProductFromList(id);
-          toast(t('リストから外しました'));
-        } else {
-          const r = await addProductToList(id);
-          toast(t('「{name}」{qty}{unit}をリストに入れました', { name: r.item.name, qty: r.item.quantity, unit: r.item.unit ?? '' }));
-        }
-        break;
-      }
       case 'review-done':
         reviewDone();
         break;
@@ -64,9 +52,8 @@ export function mount(el) {
   });
 
   return watch(
-    () => Promise.all([listCategories(), listProducts(), listItems()]),
-    ([cats, products, items]) => {
-      inList = new Set(items.filter((i) => i.productId).map((i) => i.productId));
+    () => Promise.all([listCategories(), listProducts()]),
+    ([cats, products]) => {
       const view = products;
 
       reviewEl.hidden = products.length === 0;
@@ -92,7 +79,7 @@ export function mount(el) {
           (g) => `
           <section>
             <h2 class="section-title">${esc(t(g.name))}</h2>
-            <ul class="list sortable">${g.items.map((p) => rowHtml(p, inList.has(p.id))).join('')}</ul>
+            <ul class="list sortable">${g.items.map((p) => rowHtml(p)).join('')}</ul>
           </section>`
         )
         .join('');
@@ -111,7 +98,7 @@ async function reviewDone() {
 }
 
 /** 商品1行分の HTML */
-function rowHtml(p, listed) {
+function rowHtml(p) {
   const short = shortage(p);
   const unit = esc(p.inventoryUnit);
   const meta = [`<span>${t('目標 {n}{unit}', { n: p.targetStock, unit })}</span>`];
@@ -130,12 +117,5 @@ function rowHtml(p, listed) {
         <button type="button" class="stepper-btn" data-action="inc" data-id="${p.id}"
                 aria-label="${t('{name}を1増やす', { name: esc(p.name) })}">${t('＋')}</button>
       </div>
-      <button type="button" class="cart-btn ${listed ? 'is-listed' : ''}" data-action="to-list" data-id="${p.id}"
-              aria-pressed="${listed}" aria-label="${t(listed ? '{name}を買い物リストから外す' : '{name}を買い物リストに入れる', { name: esc(p.name) })}">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/>${
-          listed ? '<path d="M10 10.5l2 2 3.5-3.5" class="cart-check"/>' : ''
-        }</svg>
-        <span>${t(listed ? 'リスト済' : 'リストへ')}</span>
-      </button>
     </li>`;
 }

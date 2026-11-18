@@ -6,7 +6,7 @@ import { toast } from '../ui/toast.js';
 import { listPlans, getPlan, savePlan, deletePlan, restorePlan, setPlanMonth } from '../data/planRepo.js';
 import { makeMovable } from '../ui/moveDrag.js';
 import { ValidationError } from '../data/productRepo.js';
-import { PLAN_KINDS, monthlyTotals, monthSections, thisMonth } from '../domain/plans.js';
+import { PLAN_KINDS, monthlyTotals, groupByMonth, thisMonth } from '../domain/plans.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText } from '../lib/i18n.js';
 import { yearOptions, monthOptions } from '../ui/monthPick.js';
@@ -106,14 +106,14 @@ export function mount(el) {
       listEl.innerHTML = `<div class="placeholder">${t('右下の「＋ 追加」から、買いたい物・やりたい事を金額と月で登録できます。')}</div>`;
       return;
     }
-    // 今月から12か月と「未定」（最後）は予定がなくても作っておき、ドラッグ中だけ表示する（移動先にするため）
-    listEl.innerHTML = monthSections(shown, now, MONTHS)
+    // 予定のある月だけ出す（v1.13：空の月を移動先として出すのはやめた。ドラッグを始めた時に一覧の形が変わらないように）
+    listEl.innerHTML = groupByMonth(shown)
       .map(
-        (g) => `<section class="month-sec ${g.items.length ? '' : 'is-empty'}" data-drop="${g.month ?? ''}">
+        (g) => `<section class="month-sec" data-drop="${g.month ?? ''}">
           <h2 class="section-title month-head ${g.month && g.month < now ? 'is-past' : ''}">
-            <span>${monthText(g.month, now)}${g.month && g.month < now ? t('（過ぎた月）') : ''}</span><span>${g.items.length ? money(g.total) : '—'}</span>
+            <span>${monthText(g.month, now)}${g.month && g.month < now ? t('（過ぎた月）') : ''}</span><span>${money(g.total)}</span>
           </h2>
-          ${g.items.length ? `<ul class="list compact-list">${g.items.map(planRow).join('')}</ul>` : ''}
+          <ul class="list compact-list">${g.items.map(planRow).join('')}</ul>
         </section>`
       )
       .join('');

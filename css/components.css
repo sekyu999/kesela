@@ -363,32 +363,22 @@ html.sheet-open { overflow: hidden; }
   flex: none;
   width: var(--tap);
   height: var(--tap);
+  padding: 0;
   border: none;
   background: none;
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.check::before {
-  content: "";
-  position: absolute;
-  inset: 11px;
-  border: 2px solid var(--text-sub);
-  border-radius: 50%;
-}
-.item-row.done .check::before {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.item-row.done .check::after {
-  content: "";
-  position: absolute;
-  left: 19px;
-  top: 15px;
-  width: 7px;
-  height: 13px;
-  border: solid var(--on-accent);
-  border-width: 0 2.5px 2.5px 0;
-  transform: rotate(45deg);
-}
+/* 丸とレ点は SVG（疑似要素の px 指定は端末によってずれるため） */
+.check-icon { width: 24px; height: 24px; display: block; overflow: visible; }
+.check-ring { fill: none; stroke: var(--text-sub); stroke-width: 2; transition: fill 0.12s, stroke 0.12s; }
+.check-mark { fill: none; stroke: var(--on-accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.item-row.done .check-ring { fill: var(--accent); stroke: var(--accent); }
+.item-row.done .check-mark { opacity: 1; }
 .item-row.done .item-name { text-decoration: line-through; color: var(--text-sub); }
 .item-main {
   flex: 1;
@@ -825,9 +815,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .chev { flex: none; color: var(--text-sub); font-size: calc(20px * var(--fs, 1)); line-height: 1; }
 /* 家計：月をまたいだドラッグ */
 .month-sec { border-radius: var(--radius, 12px); transition: background 0.12s, outline-color 0.12s; outline: 2px dashed transparent; outline-offset: 2px; }
-.month-sec.is-empty .month-head { color: var(--text-sub); font-weight: 500; margin-bottom: 0; }
 #plan-list.is-moving .month-sec { outline-color: var(--border); }
-#plan-list.is-moving .month-sec.is-empty { padding: 6px 0; }
 .month-sec.drop-over { background: var(--accent-soft); outline-color: var(--accent) !important; }
 .plan-row .drag-handle { margin-left: -6px; margin-right: -8px; touch-action: none; }
 .plan-row.move-source { opacity: 0.35; }
@@ -921,8 +909,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .plan-row .drag-handle, .plan-row .check-btn { margin-top: 0; }
 .plan-main { align-items: center !important; }
 .plan-kind { height: auto; }
-/* 予定のない月は隠す。ドラッグ中だけ移動先として出す */
-#plan-list:not(.is-moving) > .month-sec.is-empty { display: none; }
 /* iPhone は 16px 未満の入力欄を触ると画面が拡大されるため、目標の入力欄は 16px 以上にする */
 .gb-input { font-size: max(16px, 1em); }
 .gb-h1 .gb-input { font-size: max(16px, calc(20px * var(--fs, 1))); }
@@ -956,8 +942,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .item-main .item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-main .stock-meta { flex: none; flex-wrap: nowrap; }
 .item-row .check { width: 40px; height: 40px; }
-.item-row .check::before { inset: 9px; }
-.item-row.done .check::after { left: 17px; top: 13px; }
 /* 数量と単位は横に並べる（2パック） */
 .item-qty { display: flex; align-items: baseline; justify-content: flex-end; gap: 2px; line-height: 1.2; }
 .item-qty small { display: inline; margin: 0; }
@@ -986,3 +970,10 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .compare-row .compare-main { flex: 1; min-width: 0; }
 .compare-row .compare-main .badge { margin-left: 6px; }
 .compare-row .icon-btn { min-height: 36px; }
+/* v1.13 価格：そのままの値段（780円/パック）を大きく、内容量あたり（78円/100g）を小さく下に */
+.compare-price { display: flex; flex-direction: column; align-items: flex-end; flex: none; text-align: right; line-height: 1.25; white-space: nowrap; }
+.compare-main-price { font-size: var(--fz-num); font-weight: 700; font-variant-numeric: tabular-nums; }
+.compare-main-price small { display: inline; margin-left: 1px; font-size: calc(11px * var(--fs)); font-weight: 400; color: var(--text-sub); }
+.compare-sub { font-size: var(--fz-sub); font-weight: 400; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.row-button .compare-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.row-button .compare-main > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,5 +1,5 @@
 // ① 買い物リスト
-// ・「リストを更新」で在庫から不足品を追加
+// ・不足品は在庫タブの「見直し完了 → 買い物リストを更新」で入る
 // ・お店を選ぶと、そのお店の売り場順に並ぶ
 // ・左の丸をタップで購入済み（リストから消える。取り消し可）
 // ・右下の「＋ 追加」で商品マスタにない物も追加できる
@@ -13,7 +13,6 @@ import { listStores, getOrderedCategories } from '../data/storeRepo.js';
 import { listProducts } from '../data/productRepo.js';
 import {
   listItems,
-  refreshFromStock,
   addManualItem,
   updateItem,
   markPurchased,
@@ -39,7 +38,6 @@ export function mount(el) {
         <label for="store-select" class="toolbar-label">${t('お店')}</label>
         <select id="store-select" class="select"></select>
       </div>
-      <button type="button" class="btn btn-primary btn-block" data-action="refresh">${t('リストを更新')}</button>
       <div id="list-groups" class="stack"></div>
     </div>
     <button type="button" class="fab" data-action="add">${t('＋ 追加')}</button>
@@ -57,16 +55,6 @@ export function mount(el) {
     if (!btn) return;
     const id = btn.dataset.id;
     switch (btn.dataset.action) {
-      case 'refresh': {
-        const r = await refreshFromStock();
-        if (r.added || r.updated) {
-          if (r.added && r.updated)
-            toast(t('{added}品目を追加、{updated}品目の数量を更新しました', { added: r.added, updated: r.updated }));
-          else if (r.added) toast(t('{n}品目を追加しました', { n: r.added }));
-          else toast(t('{n}品目の数量を更新しました', { n: r.updated }));
-        } else toast(t('追加する商品はありません'));
-        break;
-      }
       case 'buy':
         buy(id, state);
         break;
@@ -115,7 +103,7 @@ export function mount(el) {
         groupsEl.innerHTML = `
           <div class="placeholder">
             <p>${t('リストは空です。')}</p>
-            <p>${t('在庫を見直してから「リストを更新」を押すと、足りない物が入ります。')}</p>
+            <p>${t('在庫タブで在庫を見直して「見直し完了」を押すと、足りない物が入ります。')}</p>
           </div>`;
         return;
       }
@@ -139,6 +127,10 @@ export function mount(el) {
   );
 }
 
+/** チェックの丸とレ点（SVG で描く。疑似要素の位置合わせは端末で崩れやすいため） */
+const CHECK_SVG =
+  '<svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true"><circle class="check-ring" cx="12" cy="12" r="10"/><path class="check-mark" d="M7.2 12.4l3.2 3.2 6.4-6.8"/></svg>';
+
 function itemRowHtml(it, product) {
   const badges = [];
   if (it.source === 'manual' && !it.productId) badges.push(`<span class="badge badge-muted">${t('手動')}</span>`);
@@ -146,7 +138,7 @@ function itemRowHtml(it, product) {
   if (product && shortage(product) === 0) badges.push(`<span class="badge">${t('在庫は足りています')}</span>`);
   return `
     <li class="item-row">
-      <button type="button" class="check" data-action="buy" data-id="${it.id}" aria-label="${t('{name}を購入済みにする', { name: esc(it.name) })}"></button>
+      <button type="button" class="check" data-action="buy" data-id="${it.id}" aria-label="${t('{name}を購入済みにする', { name: esc(it.name) })}">${CHECK_SVG}</button>
       <button type="button" class="item-main" data-action="edit" data-id="${it.id}">
         <span class="item-name">${esc(it.name)}</span>
         ${badges.length ? `<span class="stock-meta">${badges.join('')}</span>` : ''}
