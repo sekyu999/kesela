@@ -2,7 +2,7 @@
 // 方針：ネットにつながる時は常に最新のファイルを取り、つながらない時だけ保存済みのものを使う。
 // そのため、ファイルを更新したときにキャッシュが原因で古い画面が出る、ということが起きにくい。
 
-// アプリを更新したら版を上げる（js/lib/version.js と合わせる）
+// 版は node tools/release.mjs <版> で js/lib/version.js と一緒に上げる（APP_FILES もそのコマンドで作り直す）
 const CACHE = 'kesela-1.13.0';
 
 // オフラインでも開けるように最初に保存しておくファイル
@@ -16,6 +16,7 @@ const APP_FILES = [
   'data/foods.json',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
+  'icons/icon-512.png',
   'js/app.js',
   'js/content/dri2025.js',
   'js/content/healthRecommendations.en.js',
