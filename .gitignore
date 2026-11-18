@@ -1,0 +1,8 @@
+# Mac
+.DS_Store
+
+# 依存パッケージ（使う場合）
+node_modules/
+
+# 成分表の元データ（tools/convert-foods.py で data/foods.json に変換済み。公開不要）
+*.xlsx
