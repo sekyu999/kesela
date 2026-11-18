@@ -803,3 +803,18 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 - 公開 URL を増やす時は `~/.volta/bin/npx dexie-cloud whitelist <URL>`（この Mac は `~/.local/bin/npx` が壊れているため Volta の npx を使う）
 - 版上げは `node tools/release.mjs <版>`（10章）
 - 新しくログインしたユーザーは「お試しユーザー」（使った日が30日で同期が止まる）。`node tools/dexie-cloud-prod.mjs <メール>` で本番ユーザーにする（無料プランは3人まで。dexie-cloud.key を読んで REST API の /users に type: 'prod' を送る）
+
+## 27. iPhone のウィジェット（Scriptable）（2026-11-18）
+
+Web アプリ（PWA）ではウィジェットを作れないため、無料アプリ **Scriptable** のウィジェットで、同期のデータ（Dexie Cloud）から買い物リストを表示する。アプリ本体とは別のスクリプトで、版上げの対象外。
+
+- スクリプト：`tools/scriptable/KESELA.js`。iCloud Drive の「Scriptable」フォルダに置くと iPhone の Scriptable に出る
+- 読み方：Dexie Cloud の REST API。`/token`（client_credentials、scopes は ACCESS_DB・GLOBAL_READ の読むだけ）→ `/all/shoppingListItems`・`/all/products`・`/all/categories`
+- 接続用の鍵（dexie-cloud.key の clientId・clientSecret）は、Scriptable で初めて開いた時に貼り付けて **iPhone のキーチェーン**に保存。スクリプトのファイルには書かない。通行証（1時間）もキーチェーンに保存して使い回す
+- 並び：カテゴリの初期の並び順 → 商品の並び順 → 名前（お店ごとの売り場順は使わない）
+- 大きさ：小（4件）・中（8件・2列・数量つき）・大（18件）、ロック画面（丸＝件数、横長＝件数と2件、1行）
+- 押すと `https://sekyu999.github.io/kesela/#/list` を開く（iOS の制限で、ホーム画面のアプリではなく Safari で開く）
+- 読み直しは15分ごとを希望（実際の間隔は iOS が決める）。つながらない時は最後に読めた内容に「オフライン」を付けて表示
+- Scriptable の中で開くと：プレビュー（小・中・大）、読み込みの確認、接続設定のやり直し
+- 注意：clientSecret はこのデータベースの全部を読み書きできる鍵。iPhone のキーチェーンにだけ置き、人に見せない
+
