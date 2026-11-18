@@ -1,4 +1,4 @@
-# KESELA 設計書（v1.12.0）
+# KESELA 設計書（v1.13.0）
 
 開発指示書 v1.0 の「最初のタスク」への回答。
 
@@ -400,10 +400,10 @@ Phase 2（在庫）→ Phase 3（買い物リスト。テスト要件 3〜9 を�
 - 画面ごとに新しい入れ物を作り、前の画面のタップ処理が残らないようにする
 
 ## 10. アプリを更新する時の手順
-1. ファイルを変更する
+1. ファイルを変更する（Mac の `_Project/02_kesela/_KESELA/yuteli`）
 2. `js/lib/version.js` の `APP_VERSION` と、`sw.js` の `CACHE` の版を同じ値で上げる
 3. 新しいファイルを追加した場合は `sw.js` の `APP_FILES` にも追加する
-4. GitHub にアップロード（Add file → Upload files）
+4. commit して、GitHub Desktop の「Push origin」で GitHub へ送る（1〜2分で公開に反映）
 5. iPhone でアプリを一度閉じて開き直す
 
 ## 11. テスト
@@ -563,7 +563,7 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 - YUTELI → **KESELA**（健康 × 節約 × 楽）。画面タイトル・manifest・バックアップのファイル名（`kesela-backup-…`）を変更
 - バックアップの app 識別子は `kesela`。旧 `yuteli` のバックアップも復元できる（OLD_APP_IDS）
 - 端末内のデータベース名（IndexedDB `yuteli`）と localStorage のキー（`yuteli.*`）は**変えない**。変えると今のデータが見えなくなるため
-- URL を `sekyu999.github.io/kesela/` に移すのは保留（GitHub 連携が済んでから）。URL が変わると端末内データは引き継がれないので、バックアップ → 新URLでホーム画面に追加 → 復元 の手順が必要
+- URL は 2026-11-18 に `sekyu999.github.io/kesela/` へ移した（25章）
 
 ### 言語（日本語・英語）
 - `js/lib/i18n.js`：画面の文字は日本語のまま `t('…')` で囲み、英語の時だけ `js/i18n/en/*.js` の対応表から引く。`{name}` で値を差し込む
@@ -754,3 +754,18 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 
 ### 家計
 - 一覧は予定のある月だけ表示。空の月をドラッグ中だけ出すのはやめた（ドラッグを始めた瞬間に一覧の形が変わって行がずれていたため）。予定のない月へはドラッグでは移せない（編集シートで月を選ぶ）
+
+## 25. Git 管理・URL の変更（2026-11-18）
+
+### Git
+- GitHub のリポジトリを GitHub Desktop でクローンし、Mac の `_Project/02_kesela/_KESELA/yuteli` を作業場所にした（フォルダ名は旧名のまま）
+- 反映は commit → GitHub Desktop の「Push origin」。ブラウザからのアップロードは使わない（ファイルを消せず、古いファイルが残るため）
+- `.gitignore`：`.DS_Store`、`node_modules/`、成分表の元 Excel（`*.xlsx`。Mac には置いておき、GitHub には上げない）
+- アップロード時代に残っていた未使用の `js/screens/noteSheet.js`・`js/ui/badge.js` を削除
+
+### URL
+- リポジトリ名を `yuteli` → `kesela` に変更。公開 URL は **https://sekyu999.github.io/kesela/**
+- 旧 URL（/yuteli/）は開けなくなる（GitHub Pages は転送しない）
+- 端末内のデータは URL ごとに別なので、バックアップ → 新 URL でホーム画面に追加 → 復元 で移す
+- テーマ・文字の大きさ・言語・起動時に目標を表示 は localStorage（端末ごと・URL ごと）でバックアップに入らないため、新 URL で設定し直す
+- コードはすべて相対パスなので修正なし。IndexedDB 名・localStorage のキー（`yuteli`）も変えていない
