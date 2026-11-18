@@ -6,3 +6,7 @@ node_modules/
 
 # 成分表の元データ（tools/convert-foods.py で data/foods.json に変換済み。公開不要）
 *.xlsx
+
+# Dexie Cloud の接続情報（dexie-cloud.key は秘密の鍵。絶対に上げない）
+dexie-cloud.json
+dexie-cloud.key
