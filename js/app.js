@@ -7,10 +7,14 @@ import * as meals from './screens/meals.js';
 import * as budget from './screens/budget.js';
 import * as goals from './screens/goals.js';
 import * as settings from './screens/settings.js';
-import { db } from './data/db.js';
+import { db, SYNC } from './data/db.js';
+import { prepareCloudData } from './data/sync.js';
+import { setSyncEnabled } from './data/syncConfig.js';
+import { bindLoginSheet } from './screens/loginSheet.js';
 import { requestPersistence } from './data/storage.js';
-import { hideToast } from './ui/toast.js';
+import { hideToast, toast } from './ui/toast.js';
 import { t, translateStatic } from './lib/i18n.js';
+import { esc } from './lib/util.js';
 
 /**
  * 各画面は次の2つを export する：
@@ -65,15 +69,30 @@ async function start() {
   translateStatic();
   document.querySelector('.tabbar')?.setAttribute('aria-label', t('メイン'));
   document.getElementById('settings-btn').setAttribute('aria-label', t('設定'));
+  // 同期中の端末は、開く時にログインを求められることがある（ログイン画面はシートで出す）
+  // ログインを閉じてしまった時にも操作できるよう、ログインを待つ間は案内を出しておく（開けたら画面で置き換わる）
+  if (SYNC) {
+    showSyncLogin(t('同期にログインしてください'));
+    bindLoginSheet();
+  }
   try {
     await db.open();
   } catch (e) {
     console.error(e);
+    if (SYNC) {
+      showSyncLogin(t('同期にログインできませんでした'));
+      return;
+    }
     const p = document.createElement('p');
     p.className = 'notice';
     p.textContent = t('データベースを開けませんでした。プライベートブラウズでは使えない場合があります。');
     screenEl.replaceChildren(p);
     return;
+  }
+  if (SYNC) {
+    const r = await prepareCloudData();
+    if (r === 'moved') toast(t('この端末のデータをクラウドに移しました'));
+    else if (r === 'offline') toast(t('インターネットにつながっていないため、まだ同期できていません'));
   }
 
   // 起動時は目標の画面から（設定でオン・何か書いてある時）
@@ -122,6 +141,19 @@ async function start() {
       location.reload();
     });
   }
+}
+
+/** 同期中、ログインを待っている・できなかった時の画面 */
+function showSyncLogin(message) {
+  const box = document.createElement('div');
+  box.className = 'stack';
+  box.innerHTML = `
+    <p class="notice">${esc(message)}</p>
+    <button type="button" class="btn btn-primary btn-block" data-retry>${t('もう一度ログインする')}</button>
+    <button type="button" class="btn btn-block" data-off>${t('同期をやめて、この端末のデータで使う')}</button>`;
+  box.querySelector('[data-retry]').addEventListener('click', () => location.reload());
+  box.querySelector('[data-off]').addEventListener('click', () => setSyncEnabled(false));
+  screenEl.replaceChildren(box);
 }
 
 /** v1.4 のバッジ機能をオンにしていた端末で、残っている数字を消す */

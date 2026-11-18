@@ -1,4 +1,4 @@
-# KESELA 設計書（v1.13.0）
+# KESELA 設計書（v1.14.0）
 
 開発指示書 v1.0 の「最初のタスク」への回答。
 
@@ -400,9 +400,9 @@ Phase 2（在庫）→ Phase 3（買い物リスト。テスト要件 3〜9 を�
 - 画面ごとに新しい入れ物を作り、前の画面のタップ処理が残らないようにする
 
 ## 10. アプリを更新する時の手順
-1. ファイルを変更する（Mac の `_Project/02_kesela/_KESELA/yuteli`）
-2. `js/lib/version.js` の `APP_VERSION` と、`sw.js` の `CACHE` の版を同じ値で上げる
-3. 新しいファイルを追加した場合は `sw.js` の `APP_FILES` にも追加する
+1. ファイルを変更する（Mac の `_Project/02_kesela/_KESELA/kesela`）
+2. `node tools/release.mjs 1.15.0` のように版を指定して実行（`js/lib/version.js` と `sw.js` の CACHE をそろえ、`sw.js` の APP_FILES を実際のファイルから作り直す。ファイルの追加・削除もこれで反映）
+3. `npm test`（版の食い違い・APP_FILES の漏れもここで見つかる）
 4. commit して、GitHub Desktop の「Push origin」で GitHub へ送る（1〜2分で公開に反映）
 5. iPhone でアプリを一度閉じて開き直す
 
@@ -758,7 +758,7 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 ## 25. Git 管理・URL の変更（2026-11-18）
 
 ### Git
-- GitHub のリポジトリを GitHub Desktop でクローンし、Mac の `_Project/02_kesela/_KESELA/yuteli` を作業場所にした（フォルダ名は旧名のまま）
+- GitHub のリポジトリを GitHub Desktop でクローンし、Mac の `_Project/02_kesela/_KESELA/kesela` を作業場所にした
 - 反映は commit → GitHub Desktop の「Push origin」。ブラウザからのアップロードは使わない（ファイルを消せず、古いファイルが残るため）
 - `.gitignore`：`.DS_Store`、`node_modules/`、成分表の元 Excel（`*.xlsx`。Mac には置いておき、GitHub には上げない）
 - アップロード時代に残っていた未使用の `js/screens/noteSheet.js`・`js/ui/badge.js` を削除
@@ -769,3 +769,36 @@ meta：`profile` { sex, age, activity, menstruation }。バックアップの `s
 - 端末内のデータは URL ごとに別なので、バックアップ → 新 URL でホーム画面に追加 → 復元 で移す
 - テーマ・文字の大きさ・言語・起動時に目標を表示 は localStorage（端末ごと・URL ごと）でバックアップに入らないため、新 URL で設定し直す
 - コードはすべて相対パスなので修正なし。IndexedDB 名・localStorage のキー（`yuteli`）も変えていない
+
+## 26. v1.14.0 変更（2026-11-18）：端末間の同期（Dexie Cloud）
+
+1章「やらないこと」のクラウド同期・複数端末、6章 B の「公開先を変えるとデータは引き継がれない」への対応。
+
+### 方式
+- **Dexie Cloud**（無料プラン：本番ユーザー3人・100MB・端末数無制限）。データベース URL：`https://zy157txa6.dexie.cloud`（`js/data/syncConfig.js` の `CLOUD_DB_URL`）
+- 同期は**端末ごとにオン・オフ**（localStorage `kesela.sync`）。オフの端末は今までどおり IndexedDB `yuteli`（同期なし）
+- オンの端末は**別のデータベース `kesela`**（Dexie Cloud の部品つき）を使う。`yuteli` は消さずに残すので、同期をやめると同期前のデータに戻る
+- ログインはメールに届く確認コード（パスワードなし）。`requireAuth: true`、画面は `js/screens/loginSheet.js`（`customLoginGui`、`socialAuth: false`）
+- `sw.js` はオフライン用のまま。同期は画面を開いている間に行う（`tryUseServiceWorker: false`）
+- テーマ・文字の大きさ・言語・起動時に目標を表示 は同期しない（端末ごと）。meta の profile・note・lastBackupAt・selectedStoreId・schemaVersion は同期する
+
+### 最初の同期（`js/data/sync.js` の `prepareCloudData()`）
+ログイン後にクラウドの最新を取り込んでから：
+1. クラウドにカテゴリがある（2台目以降） → そのまま使う
+2. クラウドが空で、この端末の `yuteli` にデータがある（1台目） → `yuteli` の全データと meta（上の4つ）を `kesela` へ写す → クラウドへ送られる
+3. どちらも空 → 初期カテゴリを入れる
+- 同期用のデータベースでは populate で初期カテゴリを入れない（2台目で二重になるため）
+- 取り込みに失敗（オフライン）でカテゴリが空なら何もしない（次に開いた時にやり直す）
+
+### 画面
+- 設定の一番上に「同期」。オフ：説明と「同期を始める」（先にバックアップのボタンつき）。オン：ログイン中のメール・状態（同期済み／同期中／オフライン／エラー）・「今すぐ同期」・「この端末で同期をやめる」
+- 同期中、ログインを閉じた・できなかった時は「もう一度ログインする」「同期をやめて、この端末のデータで使う」を出す
+- 同期中の復元は「ほかの端末のデータも置き換わります」と注意を出す
+
+### その他
+- バックアップには Dexie Cloud が付ける `owner`・`realmId` を入れない
+- Dexie を 4.4.6 → 4.4.7 に（dexie-cloud-addon 4.4.16 の必要条件）
+- `vendor/dexie-cloud-addon.mjs` は yjs・rxjs などを esbuild で1ファイルにまとめ、dexie は `./dexie.mjs` を読むように書き換えたもの。作り直しは `sh tools/build-dexie-cloud.sh <dexieの版> <addonの版>`
+- `dexie-cloud.json`・`dexie-cloud.key`（秘密の鍵）は .gitignore 済み。Mac の作業フォルダにだけ置く
+- 公開 URL を増やす時は `~/.volta/bin/npx dexie-cloud whitelist <URL>`（この Mac は `~/.local/bin/npx` が壊れているため Volta の npx を使う）
+- 版上げは `node tools/release.mjs <版>`（10章）

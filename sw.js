@@ -3,7 +3,7 @@
 // そのため、ファイルを更新したときにキャッシュが原因で古い画面が出る、ということが起きにくい。
 
 // 版は node tools/release.mjs <版> で js/lib/version.js と一緒に上げる（APP_FILES もそのコマンドで作り直す）
-const CACHE = 'kesela-1.13.0';
+const CACHE = 'kesela-1.14.0';
 
 // オフラインでも開けるように最初に保存しておくファイル
 const APP_FILES = [
@@ -34,6 +34,8 @@ const APP_FILES = [
   'js/data/shoppingRepo.js',
   'js/data/storage.js',
   'js/data/storeRepo.js',
+  'js/data/sync.js',
+  'js/data/syncConfig.js',
   'js/domain/backupFormat.js',
   'js/domain/categories.js',
   'js/domain/consumption.js',
@@ -61,6 +63,7 @@ const APP_FILES = [
   'js/screens/goals.js',
   'js/screens/groupSheet.js',
   'js/screens/health.js',
+  'js/screens/loginSheet.js',
   'js/screens/meals.js',
   'js/screens/nutritionSheet.js',
   'js/screens/priceSheet.js',
@@ -79,6 +82,7 @@ const APP_FILES = [
   'js/ui/sortable.js',
   'js/ui/themeList.js',
   'js/ui/toast.js',
+  'vendor/dexie-cloud-addon.mjs',
   'vendor/dexie.mjs',
 ];
 

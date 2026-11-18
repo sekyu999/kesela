@@ -10,6 +10,9 @@ import { toast } from '../ui/toast.js';
 import { FONT_LEVELS, getFontScale, setFontScale, getTheme, setTheme } from '../ui/fontSize.js';
 import { THEMES } from '../ui/themeList.js';
 import { getMeta, META } from '../data/metaRepo.js';
+import { SYNC } from '../data/db.js';
+import { syncAvailable, setSyncEnabled } from '../data/syncConfig.js';
+import { syncNow, watchSyncState } from '../data/sync.js';
 import { saveBackup, currentCounts, restoreBackup, resetAll } from '../data/backup.js';
 import {
   listCategories,
@@ -44,6 +47,7 @@ const TABLE_LABELS = {
 export function mount(el) {
   el.innerHTML = `
     <div class="stack">
+      ${syncSectionHtml()}
       <section>
         <h2 class="section-title">${t('バックアップ')}</h2>
         <ul class="list">
@@ -196,6 +200,22 @@ export function mount(el) {
       case 'profile':
         openProfileSheet();
         break;
+      case 'sync-start':
+        openSyncStart();
+        break;
+      case 'sync-now':
+        try {
+          await syncNow();
+          toast(t('同期しました'));
+        } catch (err) {
+          console.error(err);
+          toast(t('同期できませんでした'));
+        }
+        break;
+      case 'sync-stop':
+        if (!window.confirm(t('この端末で同期をやめます。同期を始める前の、この端末のデータに戻ります（クラウドのデータは消えません）。よろしいですか？'))) return;
+        setSyncEnabled(false);
+        break;
       case 'reset':
         if (!window.confirm(t('すべてのデータ（商品・在庫・買い物リスト・店舗・価格記録）を消去します。よろしいですか？'))) return;
         if (!window.confirm(t('本当に消去しますか？この操作は取り消せません。') + '\n' + t('必要なら先にバックアップを保存してください。'))) return;
@@ -206,13 +226,88 @@ export function mount(el) {
   });
 
   const lastEl = el.querySelector('#last-backup');
-  return watch(
+  const stopSync = watchSyncState((st) => renderSyncState(el, st));
+  const stopData = watch(
     () => Promise.all([currentCounts(), getMeta(META.lastBackupAt), getMeta(META.profile)]),
     ([counts, last, profile]) => {
       el.querySelector('#profile-summary').textContent = profileSummary(profile);
       lastEl.innerHTML = last ? esc(formatDateTime(last)) : `<span class="stale">${t('まだありません')}</span>`;
     }
   );
+  return () => {
+    stopSync();
+    stopData();
+  };
+}
+
+/** 同期の欄（データベースの URL が未設定の間は出さない） */
+function syncSectionHtml() {
+  if (!syncAvailable()) return '';
+  if (!SYNC) {
+    return `
+      <section>
+        <h2 class="section-title">${t('同期')}</h2>
+        <p class="note">${t('iPhone・iPad・パソコンで同じデータを使えます（無料）')}</p>
+        <div class="form-actions" style="margin-top:8px">
+          <button type="button" class="btn btn-primary btn-block" data-action="sync-start">${t('同期を始める')}</button>
+        </div>
+      </section>`;
+  }
+  return `
+    <section>
+      <h2 class="section-title">${t('同期')}</h2>
+      <ul class="list">
+        <li><span class="grow">${t('ログイン中')}</span><span id="sync-email" class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></li>
+        <li><span class="grow">${t('状態')}</span><span id="sync-phase" class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></li>
+      </ul>
+      <div class="form-actions" style="margin-top:12px">
+        <button type="button" class="btn btn-block" data-action="sync-now">${t('今すぐ同期')}</button>
+        <button type="button" class="btn-danger-text" data-action="sync-stop">${t('この端末で同期をやめる')}</button>
+      </div>
+    </section>`;
+}
+
+const PHASE_LABELS = {
+  'in-sync': '同期済み',
+  pushing: '同期中…',
+  pulling: '同期中…',
+  offline: 'オフライン（つながったら同期します）',
+  error: '同期できませんでした',
+  initial: '準備中…',
+  'not-in-sync': '同期待ち',
+};
+
+function renderSyncState(el, st) {
+  const emailEl = el.querySelector('#sync-email');
+  const phaseEl = el.querySelector('#sync-phase');
+  if (!emailEl || !phaseEl) return;
+  emailEl.textContent = st.email ?? t('ログインしていません');
+  let label = t(PHASE_LABELS[st.phase] ?? '同期待ち');
+  if (st.license && st.license !== 'ok') label = t('Dexie Cloud の利用期限が切れています');
+  phaseEl.textContent = label;
+  phaseEl.classList.toggle('stale', st.phase === 'error' || st.license !== 'ok');
+  if (st.error) phaseEl.title = String(st.error.message ?? st.error);
+}
+
+/** 同期を始める前の説明 */
+function openSyncStart() {
+  const sheet = openSheet({
+    title: t('同期を始める'),
+    body: `
+      <ul class="tips">
+        <li>${t('メールアドレスでログインします（パスワードは不要。メールに届くコードを入力）')}</li>
+        <li>${t('クラウドにまだデータがなければ、この端末のデータをクラウドへ移します')}</li>
+        <li>${t('2台目からは、クラウドのデータを使います。この端末の今のデータは消えずに残り、同期をやめると戻ります')}</li>
+        <li>${t('テーマ・文字の大きさ・言語は、今までどおり端末ごとの設定です')}</li>
+      </ul>
+      <p class="note" style="margin-top:8px">${t('念のため、先にバックアップを保存しておくと安心です')}</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-block" data-backup-first>${t('先に今のデータをバックアップ')}</button>
+        <button type="button" class="btn btn-primary btn-block" data-start>${t('ログインして同期を始める')}</button>
+      </div>`,
+  });
+  sheet.el.querySelector('[data-backup-first]').addEventListener('click', doBackup);
+  sheet.el.querySelector('[data-start]').addEventListener('click', () => setSyncEnabled(true));
 }
 
 async function doBackup() {
@@ -243,6 +338,7 @@ async function openRestoreConfirm(result, fileName) {
         </tbody>
       </table>
       <p class="notice" style="margin-top:12px">${t('復元すると、今のデータはすべて消えてバックアップの内容に置き換わります。この操作は取り消せません。')}</p>
+      ${SYNC ? `<p class="notice">${t('同期中なので、ほかの端末のデータも置き換わります。')}</p>` : ''}
       <div class="form-actions">
         <button type="button" class="btn btn-block" data-backup-first>${t('先に今のデータをバックアップ')}</button>
         <button type="button" class="btn btn-block btn-danger" data-restore>${t('上書きして復元する')}</button>

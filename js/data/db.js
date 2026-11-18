@@ -3,12 +3,30 @@ import Dexie from '../../vendor/dexie.mjs';
 import { newId, todayLocal } from '../lib/util.js';
 import { CURRENT_SCHEMA_VERSION } from '../domain/backupFormat.js';
 import { DEFAULT_CATEGORIES, splitCategories, mergeCategories, reorganizeCategories } from '../domain/categories.js';
+import { syncEnabled, CLOUD_DB_URL } from './syncConfig.js';
 
 /** データ構造の版（バックアップにも記録する） */
 export const SCHEMA_VERSION = CURRENT_SCHEMA_VERSION;
 
-// データベース名は旧名（yuteli）のまま。変えると端末に保存済みのデータが読めなくなるため
-export const db = new Dexie('yuteli');
+/** この端末で同期（Dexie Cloud）を使っているか */
+export const SYNC = syncEnabled();
+
+/** 同期しない時のデータベース名。旧名（yuteli）のまま（変えると端末に保存済みのデータが読めなくなるため） */
+export const LOCAL_DB_NAME = 'yuteli';
+
+// 同期する時は別のデータベース（kesela）を使う。同期用の部品は同期する時だけ読み込む
+const addons = SYNC ? [(await import('../../vendor/dexie-cloud-addon.mjs')).default] : [];
+export const db = SYNC ? new Dexie('kesela', { addons }) : new Dexie(LOCAL_DB_NAME);
+
+if (SYNC) {
+  db.cloud.configure({
+    databaseUrl: CLOUD_DB_URL,
+    requireAuth: true, // 同期中はログインしてから使う
+    customLoginGui: true, // ログイン画面はアプリで作る（js/screens/loginSheet.js）
+    socialAuth: false, // メールに届くコードだけでログイン
+    tryUseServiceWorker: false, // sw.js はオフライン用だけ。同期は画面を開いている間に行う
+  });
+}
 
 // 「主キー, 検索に使う項目…」の形で書く。ここに無い項目も保存はできる。
 db.version(1).stores({
@@ -103,8 +121,10 @@ export function defaultCategoryRows() {
   return DEFAULT_CATEGORIES.map((name, i) => ({ id: newId(), name, defaultOrder: i + 1 }));
 }
 
-// データベースが初めて作られた時だけ実行される
+// データベースが初めて作られた時だけ実行される。
+// 同期する時はここでは入れない（2台目の端末で初期カテゴリが二重になるため）。js/data/sync.js の prepareCloudData で入れる
 db.on('populate', (tx) => {
+  if (SYNC) return;
   tx.table('categories').bulkAdd(defaultCategoryRows());
   tx.table('meta').put({ key: 'schemaVersion', value: SCHEMA_VERSION });
 });

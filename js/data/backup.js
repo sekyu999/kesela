@@ -9,11 +9,17 @@ import { t } from '../lib/i18n.js';
 export async function createBackupFile() {
   const data = {};
   await db.transaction('r', DATA_TABLES.map((name) => db.table(name)), async () => {
-    for (const name of DATA_TABLES) data[name] = await db.table(name).toArray();
+    for (const name of DATA_TABLES) data[name] = (await db.table(name).toArray()).map(stripCloudFields);
   });
   const settings = { profile: await getMeta(META.profile), note: (await getMeta(META.note))?.text ?? '' };
   const json = JSON.stringify(buildBackup(data, nowIso(), settings), null, 2);
   return { json, filename: backupFileName() };
+}
+
+/** 同期用の部品が付ける項目（持ち主・共有範囲）はバックアップに入れない */
+function stripCloudFields(row) {
+  const { owner, realmId, ...rest } = row;
+  return rest;
 }
 
 /**
