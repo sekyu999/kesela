@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  totalBudget,
   monthRange,
   monthOf,
   summarize,
@@ -51,10 +52,24 @@ test('収入が1件も無いと分かる（固定収入の未登録を知らせ�
   assert.equal(summarize([tx('income', 1)]).hasIncome, true);
 });
 
-test('予算残額は月予算−支出（固定費を含む総額）', () => {
-  const s = summarize([tx('expense', 80000, { source: 'fixed' }), tx('expense', 32000)], { budget: 200000 });
-  assert.equal(s.budgetLeft, 88000);
+test('予算は固定費を含まない。残りは変動費の支出だけ引く', () => {
+  const s = summarize([tx('expense', 80000, { source: 'fixed' }), tx('expense', 32000)], { budget: 50000 });
+  assert.equal(s.fixed, 80000);
+  assert.equal(s.variable, 32000);
+  assert.equal(s.budgetLeft, 18000); // 50000 − 32000（固定費の 80000 は引かない）
   assert.equal(summarize([], {}).budgetLeft, null);
+});
+
+test('月の予算はカテゴリ別の合計。1つも入れていなければ出さない', () => {
+  const cats = [{ id: 'c1', type: 'expense' }, { id: 'c2', type: 'expense' }, { id: 'c3', type: 'expense' }];
+  const budgets = [
+    { id: '1', month: null, categoryId: 'c1', amount: 40000 },
+    { id: '2', month: null, categoryId: 'c2', amount: 10000 },
+    { id: '3', month: '2026-11', categoryId: 'c2', amount: 15000 },
+  ];
+  assert.equal(totalBudget(budgets, cats, '2026-12'), 50000);
+  assert.equal(totalBudget(budgets, cats, '2026-11'), 55000); // その月の上書きが優先
+  assert.equal(totalBudget([], cats, '2026-11'), null);
 });
 
 test('予算はその月の設定 → 毎月の既定 → 未設定の順', () => {

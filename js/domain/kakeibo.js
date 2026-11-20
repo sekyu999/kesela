@@ -6,6 +6,10 @@
 //   今月の貯金額 = 収入 − 支出
 //   自由に使えるお金 = 収入 − 支出 − 貯金目標
 // 固定費も固定収入も月初に1件ずつ記録済みなので、どの式も支出を1回しか引かない。
+//
+// 予算は**固定費を含まない**（自分で加減できる変動費だけの目安）。
+//   月の予算   = カテゴリ別の予算の合計（月全体をじかに入れることはしない）
+//   予算の残り = 月の予算 − 変動費の支出（＝支出 − 固定費）
 
 /** 円グラフ・店舗の色に使うパレットの数（css の --swatch-1 … に対応） */
 export const PALETTE_SIZE = 10;
@@ -68,7 +72,8 @@ export function summarize(transactions, { savingsGoal = 0, budget = null } = {})
     free: goal > 0 ? income - expense - goal : null,
     toGoal: goal > 0 ? goal - savings : null,
     budget,
-    budgetLeft: budget == null ? null : budget - expense,
+    // 予算は固定費を含まないので、使った分も変動費だけで見る
+    budgetLeft: budget == null ? null : budget - (expense - fixed),
     hasIncome: transactions.some((t) => t.type === 'income'),
     count: transactions.length,
   };
@@ -87,6 +92,24 @@ export function resolveBudget(budgets, month, categoryId = null) {
   if (forMonth) return Number(forMonth.amount) || 0;
   const def = budgets.find((b) => (b.month ?? null) === null && same(b));
   return def ? Number(def.amount) || 0 : null;
+}
+
+/**
+ * その月の予算＝カテゴリ別の予算の合計（1つも設定が無ければ null）。
+ * 月全体をじかに入れることはしない（カテゴリ別を入れると自動で決まる）
+ */
+export function totalBudget(budgets, categories, month) {
+  let total = 0;
+  let any = false;
+  for (const c of categories) {
+    if (c.type && c.type !== 'expense') continue;
+    const v = resolveBudget(budgets, month, c.id);
+    if (v != null) {
+      total += v;
+      any = true;
+    }
+  }
+  return any ? total : null;
 }
 
 /**

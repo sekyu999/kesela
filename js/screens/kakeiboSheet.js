@@ -40,30 +40,17 @@ function chipsHtml(list, selected) {
 export function quickFormHtml() {
   return `
     <form novalidate class="quick-form">
-      ${calcFieldHtml({ name: 'amount', label: t('金額'), value: '' })}
-      <div class="field">
-        <label id="q-cat-label">${t('カテゴリ')}</label>
-        <div class="chip-grid" role="radiogroup" aria-labelledby="q-cat-label" data-cats></div>
-        <input type="hidden" name="categoryId" value="">
-        <p class="field-error" data-error-for="categoryId"></p>
+      ${calcFieldHtml({ name: 'amount', value: '', compact: true })}
+      <div class="chip-grid" role="radiogroup" aria-label="${t('カテゴリ')}" data-cats></div>
+      <p class="field-error" data-error-for="categoryId"></p>
+      <input type="hidden" name="categoryId" value="">
+      <div class="row quick-row">
+        <input name="date" class="input quick-date" type="date" value="" aria-label="${t('日付')}">
+        <input name="memo" class="input grow" maxlength="200" autocomplete="off" enterkeyhint="done"
+               aria-label="${t('メモ')}" placeholder="${t('メモ（任意）')}">
       </div>
-      <div class="field">
-        <label for="q-memo">${t('メモ')} <span class="optional">${t('任意')}</span></label>
-        <input id="q-memo" name="memo" class="input" maxlength="200" autocomplete="off" enterkeyhint="done"
-               placeholder="${t('例：スーパー、ランチ')}">
-      </div>
-      <div class="field">
-        <label for="q-date">${t('日付')}</label>
-        <div class="row date-row">
-          <input id="q-date" name="date" class="input grow" type="date" value="">
-          <button type="button" class="btn btn-small" data-day="0">${t('今日')}</button>
-          <button type="button" class="btn btn-small" data-day="-1">${t('昨日')}</button>
-        </div>
-        <p class="field-error" data-error-for="date"></p>
-      </div>
-      <div class="quick-actions">
-        <button type="submit" class="btn btn-primary btn-block">${t('記録する')}</button>
-      </div>
+      <p class="field-error" data-error-for="date"></p>
+      <button type="submit" class="btn btn-primary btn-block quick-save">${t('記録する')}</button>
     </form>`;
 }
 

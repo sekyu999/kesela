@@ -1128,12 +1128,20 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .badge-reach { background: var(--accent-soft); color: var(--accent); }
 
 /* ===== v1.15 の調整 ===== */
-/* 家計簿：常に出ているかんたん入力 */
-.kb-quick .calc-field { margin-top: 10px; }
-.kb-quick .tx-kind { margin-bottom: 10px; }
-.quick-actions { display: flex; gap: 8px; margin-top: 14px; }
-.quick-actions .btn { min-height: 46px; }
-.quick-date { margin-top: 6px; font-size: var(--fz-sub); color: var(--text-sub); text-align: center; }
+/* 家計簿：かんたん入力（iPhone で1画面に収まるよう余白を詰める） */
+.kb-quick { margin-top: -4px; }
+.quick-form .calc-field { margin-top: 0; }
+.quick-form .calc-field.is-compact .calc-display { margin-bottom: 2px; }
+.quick-form .calc-pad { margin-top: 6px; gap: 5px; }
+.quick-form .calc-key { min-height: 40px; }
+.quick-form .chip-grid { gap: 5px; margin-top: 10px; }
+.quick-form .chip-cat { min-height: 32px; padding: 0 9px; font-size: calc(14px * var(--fs)); }
+.quick-form .quick-date { flex: none; width: 10.5em; }
+.quick-form .quick-row { align-items: center; gap: 6px; margin-top: 8px; }
+.quick-form .quick-row .input { min-height: 40px; }
+.quick-form .btn-small { min-height: 40px; }
+.quick-form .quick-save { min-height: 48px; margin-top: 12px; }
+.quick-form .field-error:empty { display: none; }
 
 /* 年平均を出す画面 */
 .avg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; margin-top: 12px; }
@@ -1174,3 +1182,4 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 
 /* かんたん入力の「記録する」 */
 .quick-actions { display: block; margin-top: 16px; }
+.budget-total { margin: 12px 0 4px; font-weight: 700; text-align: center; }

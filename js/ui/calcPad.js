@@ -21,19 +21,23 @@ const ROWS = [
 /** 読み上げ用の名前 */
 const LABELS = { '÷': '割る', '×': '掛ける', '−': '引く', '+': '足す', '⌫': '1文字消す', C: 'すべて消す', '=': '計算する' };
 
-export function calcFieldHtml({ name = 'amount', label = '金額', value = '' }) {
+/**
+ * @param {{name?:string, label?:string, value?:string, compact?:boolean}} opts
+ *   compact … 見出しを出さず、余白を詰める（かんたん入力のように1画面に収めたい時）
+ */
+export function calcFieldHtml({ name = 'amount', label = '金額', value = '', compact = false }) {
   const key = (k) => {
     const op = LABELS[k];
     const cls = /^\d+$/.test(k) ? 'calc-num' : 'calc-op';
     return `<button type="button" class="calc-key ${cls}" data-key="${esc(k)}"${op ? ` aria-label="${esc(t(op))}"` : ''}>${esc(k)}</button>`;
   };
   return `
-    <div class="field calc-field">
-      <label for="f-${name}">${esc(label)}</label>
+    <div class="field calc-field ${compact ? 'is-compact' : ''}">
+      ${compact ? '' : `<label for="f-${name}">${esc(label)}</label>`}
       <div class="calc-display">
         <span class="calc-expr" data-calc-expr aria-hidden="true"></span>
         <input id="f-${name}" name="${name}" class="input calc-input" type="text" inputmode="none" readonly
-               value="${esc(value)}" placeholder="0" autocomplete="off">
+               value="${esc(value)}" placeholder="0" autocomplete="off" aria-label="${esc(t('金額'))}">
         <span class="unit-suffix">${t('円')}</span>
       </div>
       <p class="field-error" data-error-for="${name}"></p>

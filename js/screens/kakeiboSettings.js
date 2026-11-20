@@ -59,24 +59,20 @@ export async function openKakeiboSettings(month = thisMonth()) {
 
         <section style="margin-top:18px">
           <h3 class="section-title">${t('予算')}</h3>
-          <p class="sheet-lead">${t('固定費を含む、使っていい額。空欄なら出しません。')}</p>
+          <p class="sheet-lead">${t('カテゴリごとに、使っていい額を入れてください。月全体の予算はその合計になります。固定費は含みません。')}</p>
           <div class="segmented" role="tablist">
             <button type="button" role="tab" data-target="default" aria-selected="${String(budgetTarget === 'default')}">${t('毎月')}</button>
             <button type="button" role="tab" data-target="month" aria-selected="${String(budgetTarget === 'month')}">${t('{month}だけ', { month: monthText(month, null) })}</button>
           </div>
-          <div class="field" style="margin-top:12px">
-            <label>${t('月全体')}</label>
-            ${amountInput('total', rawBudget(budgets, target), budgetTarget === 'month' ? t('空欄なら毎月の設定を使う') : t('例：200000'))}
-            <p class="field-error" data-error-for="total"></p>
-          </div>
-          <h4 class="section-title sub">${t('カテゴリ別')}</h4>
+          <p class="budget-total" data-total></p>
           ${expenseCats
             .map(
               (c) => `<div class="field kb-catbudget">
                 <label for="f-cb-${c.id}"><span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>${esc(c.name)}</label>
                 <div class="row" style="align-items:center">
                   <input id="f-cb-${c.id}" name="cat-${c.id}" class="input grow" inputmode="numeric"
-                         value="${rawBudget(budgets, target, c.id) ?? ''}" autocomplete="off">
+                         value="${rawBudget(budgets, target, c.id) ?? ''}"
+                         placeholder="${budgetTarget === 'month' ? esc(t('毎月の設定を使う')) : ''}" autocomplete="off">
                   <span class="unit-suffix">${t('円')}</span>
                 </div>
               </div>`
@@ -133,6 +129,28 @@ export async function openKakeiboSettings(month = thisMonth()) {
     const form = body.querySelector('[data-budget-form]');
     bindErrorClear(form);
 
+    // カテゴリ別を入れると、月全体の予算が自動で決まる（打ちながら合計を出す）
+    const totalEl = form.querySelector('[data-total]');
+    const paintTotal = () => {
+      let sum = 0;
+      let any = false;
+      for (const c of expenseCats) {
+        const r = validateBudgetAmount(form.elements.namedItem(`cat-${c.id}`).value);
+        const v = r.ok ? r.value : null;
+        // その月だけの画面で空欄なら、毎月の設定が使われる
+        const eff = v ?? (budgetTarget === 'month' ? rawBudget(budgets, null, c.id) : null);
+        if (eff != null) {
+          sum += eff;
+          any = true;
+        }
+      }
+      totalEl.textContent = any
+        ? t('月全体の予算：{amount}', { amount: money(sum) })
+        : t('カテゴリごとに入れると、月全体の予算が決まります');
+    };
+    form.addEventListener('input', paintTotal);
+    paintTotal();
+
     // 予算の保存先（毎月／この月だけ）
     form.querySelectorAll('[data-target]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -150,7 +168,6 @@ export async function openKakeiboSettings(month = thisMonth()) {
         return r.ok ? r.value : null;
       };
       const goalValue = read('savingsGoal', 'savingsGoal');
-      const total = read('total', 'total');
       const catValues = expenseCats.map((c) => {
         const r = validateBudgetAmount(form.elements.namedItem(`cat-${c.id}`).value);
         if (!r.ok) errors.cats = r.error;
@@ -161,7 +178,7 @@ export async function openKakeiboSettings(month = thisMonth()) {
         return;
       }
       await setMeta(META.savingsGoal, goalValue ?? 0);
-      await setBudget(target, null, total);
+      // 月全体の予算は持たない（カテゴリ別の合計で決まる）
       for (const [id, v] of catValues) await setBudget(target, id, v);
       toast(t('保存しました'));
       render();

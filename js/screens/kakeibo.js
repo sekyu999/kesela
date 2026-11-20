@@ -1,8 +1,9 @@
-// 家計タブ：上のセグメントで「今月（実績）」「カレンダー」「予定（買いたい物・やりたい事）」を切り替える
+// 家計タブ：上のセグメントで「記録」「今月」「カレンダー」「予定」を切り替える
 //
-// ・今月  … かんたん入力と、今月のお金の様子（収入・支出・貯金・使えるお金・何に使ったか）
+// ・記録      … かんたん入力だけ。iPhone で1画面に収まり、開いてすぐ記録できる
+// ・今月      … 収入・支出・貯金・使えるお金・予算・何に使ったか（円グラフ）
 // ・カレンダー … 日ごとの支出と、日付ごとにまとめた記録
-// ・予定  … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
+// ・予定      … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
 import { watch } from '../ui/live.js';
 import { toast } from '../ui/toast.js';
 import { listByMonth, monthlySavings } from '../data/transactionRepo.js';
@@ -10,7 +11,7 @@ import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
 import { listBudgets } from '../data/budgetRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
-import { summarize, resolveBudget, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
+import { summarize, totalBudget, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
 import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
@@ -22,6 +23,7 @@ import { t, money, monthText, dateShort } from '../lib/i18n.js';
 export const title = '家計';
 
 const SEGMENTS = [
+  { key: 'input', label: '記録' },
   { key: 'month', label: '今月' },
   { key: 'calendar', label: 'カレンダー' },
   { key: 'plans', label: '予定' },
@@ -54,7 +56,14 @@ export function mount(el) {
     el.querySelectorAll('[data-seg]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.seg === segment)));
     const box = document.createElement('div');
     view.replaceChildren(box);
-    stop = (segment === 'plans' ? budget.mount(box) : segment === 'calendar' ? mountCalendar(box) : mountMonth(box)) ?? null;
+    stop =
+      (segment === 'plans'
+        ? budget.mount(box)
+        : segment === 'calendar'
+          ? mountCalendar(box)
+          : segment === 'month'
+            ? mountMonth(box)
+            : mountInput(box)) ?? null;
   }
 
   el.addEventListener('click', (e) => {
@@ -96,85 +105,80 @@ function bindMonthNav(el, onChange) {
   });
 }
 
-// ===================== ① 今月 =====================
+// ===================== ① 記録（かんたん入力だけ） =====================
 
-function mountMonth(el) {
-  let state = null;
-  let catKey = null; // カテゴリの一覧が変わった時だけ入力欄を作り直すための印
+function mountInput(el) {
+  let catKey = null;
   let quick = null;
-  let stop = null;
 
-  el.innerHTML = `
-    <div class="stack">
-      <div data-nav></div>
-      <section class="card kb-quick" data-quick></section>
-      <div data-body class="stack"></div>
-    </div>`;
-  const navEl = el.querySelector('[data-nav]');
+  el.innerHTML = `<div class="kb-quick" data-quick></div>`;
   const quickEl = el.querySelector('[data-quick]');
-  const bodyEl = el.querySelector('[data-body]');
 
-  bindMonthNav(navEl, () => subscribe());
-
-  el.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action]');
-    if (btn?.dataset.action === 'settings') openKakeiboSettings(viewMonth);
-  });
-
-  function render() {
-    if (!state) return;
-    const { rows, categories, fixedCosts, budgets, savingsGoal } = state;
-    navEl.innerHTML = monthNavHtml(viewMonth);
-
-    // かんたん入力（カテゴリの一覧が変わった時だけ作り直す。書いている途中を消さないため）
-    const nextKey = categories.map((c) => `${c.id}:${c.name}:${c.colorIndex}`).join('|');
-    if (nextKey !== catKey) {
+  return watch(
+    () => listExpenseCategories(),
+    (categories) => {
+      // カテゴリの一覧が変わった時だけ作り直す（書いている途中を消さないため）
+      const nextKey = categories.map((c) => `${c.id}:${c.name}:${c.colorIndex}`).join('|');
+      if (nextKey === catKey) return;
       catKey = nextKey;
       quick?.destroy();
       quickEl.innerHTML = quickFormHtml();
       quick = bindQuickForm(quickEl, categories);
     }
+  );
+}
 
-    const s = summarize(rows, { savingsGoal, budget: resolveBudget(budgets, viewMonth) });
-    const cats = byCategory(rows, categories, fixedCosts);
+// ===================== ② 今月（まとめ） =====================
 
-    bodyEl.innerHTML = `
-      <section class="card">
-        <ul class="kb-stats">
-          <li><span>${t('収入')}</span><strong>${money(s.income)}</strong></li>
-          <li><span>${t('支出')}</span><strong>${money(s.expense)}</strong></li>
-          <li class="${s.savings < 0 ? 'is-minus' : ''}"><span>${t('貯金額')}</span><strong>${money(s.savings)}</strong></li>
-        </ul>
-        ${freeHtml(s)}
-      </section>
-      ${budgetHtml(s)}
-      ${cats.length ? donutHtml(donutSlices(cats), s.expense) : ''}
-      <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・カテゴリ・貯金目標を設定')}</button>`;
-  }
+function mountMonth(el) {
+  let state = null;
 
-  /** その月のデータを読み直す（月を切り替えた時にも呼ぶ） */
-  function subscribe() {
-    stop?.();
-    stop = watch(
-      async () => ({
-        rows: await listByMonth(viewMonth),
-        categories: await listExpenseCategories(),
-        fixedCosts: await listFixedCosts(),
-        budgets: await listBudgets(),
-        savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
-      }),
-      (s) => {
-        state = s;
-        render();
-      }
+  el.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (btn?.dataset.action === 'settings') openKakeiboSettings(thisMonth());
+  });
+
+  function render() {
+    if (!state) return;
+    const { rows, categories, fixedCosts, budgets, savingsGoal } = state;
+    const month = thisMonth();
+    const s = summarize(rows, { savingsGoal, budget: totalBudget(budgets, categories, month) });
+    // 円グラフは変動費だけ（固定費は毎月同じなので、何に使ったかの参考にならない）
+    const cats = byCategory(
+      rows.filter((r) => !r.fixedCostId),
+      categories,
+      fixedCosts
     );
-  }
-  subscribe();
 
-  return () => {
-    quick?.destroy();
-    stop?.();
-  };
+    el.innerHTML = `
+      <div class="stack">
+        <section class="card">
+          <ul class="kb-stats">
+            <li><span>${t('収入')}</span><strong>${money(s.income)}</strong></li>
+            <li><span>${t('支出')}</span><strong>${money(s.expense)}</strong></li>
+            <li class="${s.savings < 0 ? 'is-minus' : ''}"><span>${t('貯金額')}</span><strong>${money(s.savings)}</strong></li>
+          </ul>
+          ${freeHtml(s)}
+        </section>
+        ${budgetHtml(s)}
+        ${cats.length ? donutHtml(donutSlices(cats), s.variable) : ''}
+        <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・カテゴリ・貯金目標を設定')}</button>
+      </div>`;
+  }
+
+  return watch(
+    async () => ({
+      rows: await listByMonth(thisMonth()),
+      categories: await listExpenseCategories(),
+      fixedCosts: await listFixedCosts(),
+      budgets: await listBudgets(),
+      savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
+    }),
+    (s) => {
+      state = s;
+      render();
+    }
+  );
 }
 
 /** 「今月自由に使えるお金」。貯金目標・収入が未設定の時は案内を出す */
@@ -201,15 +205,15 @@ function freeHtml(s) {
   </div>`;
 }
 
-/** 予算の残り（設定している時だけ） */
+/** 予算の残り（カテゴリ別の予算を入れている時だけ）。予算は固定費を含まない */
 function budgetHtml(s) {
   if (s.budget == null) return '';
-  const pct = Math.min(100, s.budget ? (s.expense / s.budget) * 100 : 0);
+  const pct = Math.min(100, s.budget ? (s.variable / s.budget) * 100 : 0);
   const over = s.budgetLeft < 0;
   return `<section class="card">
     <div class="kb-free-head"><span>${t('予算の残り')}</span><strong class="${over ? 'is-minus' : ''}">${money(s.budgetLeft)}</strong></div>
     <div class="kb-bar"><span class="kb-bar-used ${over ? 'is-over' : ''}" style="width:${pct}%"></span></div>
-    <p class="kb-free-note">${t('月予算 {budget}（固定費 {fixed} を含む）', { budget: money(s.budget), fixed: money(s.fixed) })}</p>
+    <p class="kb-free-note">${t('予算 {budget}（固定費は含みません）・使った {used}', { budget: money(s.budget), used: money(s.variable) })}</p>
   </section>`;
 }
 
@@ -254,7 +258,7 @@ function donutHtml(slices, total) {
           .join('')}
       </ul>
     </div>
-    <p class="kb-free-note">${t('支出の合計 {total}', { total: money(total) })}</p>
+    <p class="kb-free-note">${t('固定費を除いた支出の合計 {total}', { total: money(total) })}</p>
   </section>`;
 }
 
