@@ -187,6 +187,10 @@ export default {
   '月全体の予算：{amount}': 'Monthly budget: {amount}',
   'カテゴリごとに入れると、月全体の予算が決まります': 'Enter amounts per category to set the monthly budget',
   毎月の設定を使う: 'Uses the every-month setting',
+  アプリのアイコン: 'App icon',
+  'ホーム画面のアイコンは、一度消してから追加し直すと変わります': 'The home screen icon changes when you remove the app and add it again',
+  丸と弧: 'Circle and arc',
+  半分の丸: 'Split circle',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

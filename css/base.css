@@ -1,17 +1,18 @@
-/* 色・余白などの基本設定。色を変えたいときはここの変数だけ変える */
+/* 色・余白などの基本設定。色を変えたいときはここの変数だけ変える
+   既定の配色は KESELA のブランド色（紺 #0B2446 ／ 黄 #F6B335 ／ クリーム #FBF7EF） */
 :root {
-  --bg: #f6f5f1;
+  --bg: #fbf7ef;
   --surface: #ffffff;
-  --text: #1f201d;
-  --text-sub: #6b6c66;
-  --border: #e3e1da;
-  --accent: #2f7d4f;        /* 主要ボタン・選択中タブ */
-  --accent-soft: #e4f1e8;
+  --text: #0b2446;
+  --text-sub: #5f6e85;
+  --border: #e7dfd1;
+  --accent: #0b2446;        /* 主要ボタン・選択中タブ（ブランドの紺） */
+  --accent-soft: #e8edf4;
   --danger: #b4382c;
-  --warn-soft: #fbf0d9;
+  --warn-soft: #fdf0d5;
   --warn-text: #8a5a00;    /* 注意の文字 */
-  --warn-bar: #d99a1e;     /* 栄養が少ない時のバー */
-  --on-accent: #ffffff;    /* 主要ボタンの文字 */
+  --warn-bar: #f6b335;     /* ブランドの黄。注意・目標のバー */
+  --on-accent: #fbf7ef;    /* 主要ボタンの文字 */
 
   --radius: 12px;
   --gap: 16px;
@@ -26,17 +27,17 @@
   --tabbar-h: 60px;
 
   /* ---- 色のパレット（円グラフ・お店の色）。テーマを変えても同じ色を使う。
-         明るい背景でも暗い背景でも見分けられる中くらいの濃さにし、上に白い文字を置く ---- */
-  --swatch-1: #3f7fd0;
-  --swatch-2: #d9792b;
-  --swatch-3: #3f9e6e;
-  --swatch-4: #c2496b;
-  --swatch-5: #7a63c4;
-  --swatch-6: #c9a227;
-  --swatch-7: #2fa3a8;
-  --swatch-8: #b5543f;
-  --swatch-9: #7a8c3f;
-  --swatch-10: #8a6b55;
+         ブランドの紺・黄になじむ、中くらいの濃さの10色。上に白い文字を置いても読める ---- */
+  --swatch-1: #1d4e89;
+  --swatch-2: #c77a16;
+  --swatch-3: #2e7d62;
+  --swatch-4: #b5462f;
+  --swatch-5: #6a4c93;
+  --swatch-6: #0f7b8a;
+  --swatch-7: #9c2f5a;
+  --swatch-8: #6e7f2e;
+  --swatch-9: #8a5a3b;
+  --swatch-10: #44557a;
 
   --fs: 0.82;               /* 文字の大きさの倍率（設定で変更。js/ui/fontSize.js の DEFAULT_SCALE と合わせる） */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -47,18 +48,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1b1c1a;
-    --surface: #252623;
-    --text: #ecebe6;
-    --text-sub: #a3a39c;
-    --border: #3a3b37;
-    --accent: #6cc28f;
-    --accent-soft: #23382b;
+    --bg: #0b1b33;
+    --surface: #14263f;
+    --text: #f2eee4;
+    --text-sub: #9faec2;
+    --border: #27374f;
+    --accent: #f6b335;      /* 暗い紺の上では黄が主役になる */
+    --accent-soft: #33301f;
     --danger: #ef7a6d;
     --warn-soft: #3d3420;
     --warn-text: #f0c46b;
-    --warn-bar: #d9a33a;
-    --on-accent: #10170f;
+    --warn-bar: #e09b2e;
+    --on-accent: #0b2446;
   }
 }
 

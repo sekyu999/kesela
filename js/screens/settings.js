@@ -29,6 +29,7 @@ import { APP_VERSION } from '../lib/version.js';
 import { openProfileSheet, profileSummary } from './profileSheet.js';
 import { START_OPTIONS, startScreen, setStartScreen } from '../ui/startScreen.js';
 import { WEEK_OPTIONS, weekStart, setWeekStart } from '../ui/weekStart.js';
+import { APP_ICONS, appIcon, setAppIcon } from '../ui/appIcon.js';
 import { esc } from '../lib/util.js';
 import { t, dateLong, LANG_OPTIONS, getLangPref, setLangPref } from '../lib/i18n.js';
 
@@ -88,6 +89,18 @@ export function mount(el) {
             }>${esc(o.key === 'auto' ? t(o.label) : o.label)}</button>`
           ).join('')}
         </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">${t('アプリのアイコン')}</h2>
+        <div class="icon-pick" role="radiogroup" aria-label="${t('アプリのアイコン')}">
+          ${APP_ICONS.map(
+            (o) => `<button type="button" role="radio" data-appicon="${o.key}" aria-checked="false" aria-label="${esc(t(o.label))}">
+              <img src="icons/${o.key}/icon-192.png" alt="" width="56" height="56">
+            </button>`
+          ).join('')}
+        </div>
+        <p class="note" style="margin-top:6px">${t('ホーム画面のアイコンは、一度消してから追加し直すと変わります')}</p>
       </section>
 
       <section>
@@ -177,8 +190,30 @@ export function mount(el) {
     if (!b) return;
     setWeekStart(b.dataset.week);
     markWeek();
+
+  // ---- アプリのアイコン ----
+  const markIcon = () =>
+    el.querySelectorAll('[data-appicon]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.appicon === appIcon())));
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-appicon]');
+    if (!b) return;
+    setAppIcon(b.dataset.appicon);
+    markIcon();
+  });
+  markIcon();
   });
   markWeek();
+
+  // ---- アプリのアイコン ----
+  const markIcon = () =>
+    el.querySelectorAll('[data-appicon]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.appicon === appIcon())));
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-appicon]');
+    if (!b) return;
+    setAppIcon(b.dataset.appicon);
+    markIcon();
+  });
+  markIcon();
   });
   markStart();
 
@@ -192,8 +227,30 @@ export function mount(el) {
     if (!b) return;
     setWeekStart(b.dataset.week);
     markWeek();
+
+  // ---- アプリのアイコン ----
+  const markIcon = () =>
+    el.querySelectorAll('[data-appicon]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.appicon === appIcon())));
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-appicon]');
+    if (!b) return;
+    setAppIcon(b.dataset.appicon);
+    markIcon();
+  });
+  markIcon();
   });
   markWeek();
+
+  // ---- アプリのアイコン ----
+  const markIcon = () =>
+    el.querySelectorAll('[data-appicon]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.appicon === appIcon())));
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-appicon]');
+    if (!b) return;
+    setAppIcon(b.dataset.appicon);
+    markIcon();
+  });
+  markIcon();
 
   // ---- テーマ ----
   const markTheme = () =>

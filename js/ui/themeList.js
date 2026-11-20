@@ -1,6 +1,13 @@
 // テーマ一覧（css/themes.css と対応）。色見本と、iPhone の上部バーの色に使う
 export const THEMES = [
   {
+    "key": "kesela",
+    "label": "KESELA",
+    "bg": "#fbf7ef",
+    "accent": "#0b2446",
+    "surface": "#ffffff"
+  },
+  {
     "key": "wakaba",
     "label": "若葉",
     "bg": "#f6f5f1",

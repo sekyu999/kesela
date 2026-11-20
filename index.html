@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>KESELA</title>
-  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1b1c1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FBF7EF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B2446" media="(prefers-color-scheme: dark)">
 
   <!-- ホーム画面に追加したときの設定（iPhone） -->
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="icons/a/apple-touch-icon.png">
   <!-- ブックマークバー・タブのアイコン -->
-  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
-  <link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="icon" href="icons/a/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/a/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="icons/a/favicon-16.png" sizes="16x16" type="image/png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="KESELA">
@@ -24,6 +24,12 @@
     try {
       var fs = Number(localStorage.getItem('yuteli.fontScale')); if (fs > 0) document.documentElement.style.setProperty('--fs', String(Math.min(fs, 0.94)));
       var th = localStorage.getItem('yuteli.theme'); if (th) document.documentElement.setAttribute('data-theme', th);
+      var ic = localStorage.getItem('yuteli.appIcon');
+      if (ic === 'b' || ic === 'c') {
+        document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]').forEach(function (l) {
+          l.href = l.href.replace('/icons/a/', '/icons/' + ic + '/');
+        });
+      }
     } catch (e) {}
   </script>
   <link rel="stylesheet" href="css/base.css">

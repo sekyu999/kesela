@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KESELA">
+  <rect width="512" height="512" rx="112" fill="#FBF7EF"/>
+  <rect x="150" y="120" width="64" height="272" fill="#0B2446"/>
+  <path d="M 214 288 A 170 170 0 0 1 384 118 A 170 170 0 0 1 214 288 Z" fill="#F6B335"/>
+  <path d="M 214 222 A 170 170 0 0 0 384 392 A 170 170 0 0 0 214 222 Z" fill="#0B2446"/>
+</svg>

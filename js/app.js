@@ -12,6 +12,7 @@ import { prepareCloudData } from './data/sync.js';
 import { setSyncEnabled } from './data/syncConfig.js';
 import { bindLoginSheet } from './screens/loginSheet.js';
 import { requestPersistence } from './data/storage.js';
+import { applyAppIcon } from './ui/appIcon.js';
 import { hideToast, toast } from './ui/toast.js';
 import { t, translateStatic } from './lib/i18n.js';
 import { esc } from './lib/util.js';
@@ -126,6 +127,7 @@ async function start() {
 
 
   requestPersistence();
+  applyAppIcon();
 
   // 以前の版で出していたアイコンのバッジ（買い物リストの件数）を消す
   clearOldBadge();
