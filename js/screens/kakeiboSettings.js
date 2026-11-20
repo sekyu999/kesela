@@ -15,7 +15,7 @@ import { listBudgets, setBudget } from '../data/budgetRepo.js';
 import { listFixedCosts, getFixedCost, saveFixedCost, deleteFixedCost, countGeneratedRows, applyToMonth } from '../data/fixedCostRepo.js';
 import { getMeta, setMeta, META } from '../data/metaRepo.js';
 import { rawBudget, validateBudgetAmount, PALETTE_SIZE } from '../domain/kakeibo.js';
-import { averageAmount, SAMPLE_MONTHS } from '../domain/fixedCost.js';
+import { averageAmount, SAMPLE_MONTHS, CYCLES, cycleOf, cycleLabel } from '../domain/fixedCost.js';
 import { thisMonth } from '../domain/plans.js';
 import { ValidationError } from '../data/productRepo.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
@@ -115,7 +115,9 @@ export async function openKakeiboSettings(month = thisMonth()) {
                     <button type="button" class="row-button" data-fixed="${f.id}">
                       <span class="kb-dot" style="background:var(--swatch-${(f.colorIndex ?? 0) + 1})"></span>
                       <span class="grow kb-name">${esc(f.name)}${f.endMonth ? `<span class="badge badge-muted">${t('終了')}</span>` : ''}
-                        <span class="kb-memo">${f.dayOfMonth ? t('毎月{d}日', { d: f.dayOfMonth }) : t('月初')}</span></span>
+                        <span class="kb-memo">${[cycleLabel(f) && t(cycleLabel(f)), f.dayOfMonth ? t('{d}日', { d: f.dayOfMonth }) : t('月初')]
+                          .filter(Boolean)
+                          .join(t('・'))}</span></span>
                       <span class="kb-amount">${f.type === 'income' ? '+' : ''}${money(f.amount)}</span>
                     </button>
                   </li>`
@@ -226,6 +228,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
     amount: '',
     colorIndex: 0,
     samples: {},
+    everyMonths: 1,
     dayOfMonth: '',
     startMonth: thisMonth(),
     endMonth: null,
@@ -256,6 +259,15 @@ export async function openFixedCostSheet(id, month, onSaved) {
         ${calcFieldHtml({ name: 'amount', label: t('金額（変わる物は平均額）'), value: v.amount === '' ? '' : String(v.amount) })}
         <div class="field">
           <button type="button" class="btn btn-block" data-average>${t('年平均を出す（12か月の金額から）')}</button>
+        </div>
+        <div class="field">
+          <label for="f-every">${t('支払いの間隔')}</label>
+          <select id="f-every" name="everyMonths" class="select">
+            ${CYCLES.map(
+              (c) => `<option value="${c.months}" ${cycleOf(v) === c.months ? 'selected' : ''}>${t(c.label)}</option>`
+            ).join('')}
+          </select>
+          <p class="sheet-lead">${t('水道代のように隔月の物は、ここで間隔を選びます。「いつから」の月が基準になります。')}</p>
         </div>
         <div class="field">
           <label for="f-day">${t('引き落とし日')} <span class="optional">${t('任意')}</span></label>
@@ -338,6 +350,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
         amount: pad.value,
         colorIndex: color,
         samples,
+        everyMonths: g('everyMonths'),
         dayOfMonth: g('dayOfMonth'),
         startMonth: `${g('startYear')}-${g('startMon')}`,
         ended: form.elements.namedItem('ended').checked,

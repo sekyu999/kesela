@@ -78,3 +78,28 @@ test('年平均：空欄は数に入れず、四捨五入した整数の円に�
   assert.deepEqual(averageAmount(['1000', '1001']), { average: 1001, count: 2 });
   assert.deepEqual(averageAmount(['', '0', 'abc']), { average: 0, count: 0 });
 });
+
+test('隔月：いつからの月を基準に、間隔の月だけ有効', async () => {
+  const { isActiveIn, cycleOf, cycleLabel } = await import('../js/domain/fixedCost.js');
+  const water = { ...rent, name: '水道', startMonth: '2026-11', everyMonths: 2 };
+  assert.deepEqual(
+    ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02'].map((m) => isActiveIn(water, m)),
+    [false, true, false, true, false]
+  );
+  // 3か月ごと
+  const g = { ...rent, startMonth: '2026-01', everyMonths: 3 };
+  assert.deepEqual(['2026-01', '2026-02', '2026-04', '2026-07'].map((m) => isActiveIn(g, m)), [true, false, true, true]);
+  // 指定なし・おかしい値は毎月あつかい
+  assert.equal(cycleOf({}), 1);
+  assert.equal(cycleOf({ everyMonths: 5 }), 1);
+  assert.equal(isActiveIn({ ...rent, everyMonths: undefined }, '2026-12'), true);
+  assert.equal(cycleLabel({ everyMonths: 1 }), '');
+});
+
+test('隔月の固定費は、来ない月には記録を作らない', async () => {
+  const { rowsToCreate } = await import('../js/domain/fixedCost.js');
+  const water = { ...rent, id: 'w', startMonth: '2026-11', everyMonths: 2, amount: 5200 };
+  assert.equal(rowsToCreate([water], [], '2026-11', 'T').length, 1);
+  assert.equal(rowsToCreate([water], [], '2026-12', 'T').length, 0);
+  assert.equal(rowsToCreate([water], [], '2027-01', 'T').length, 1);
+});

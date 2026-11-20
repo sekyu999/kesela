@@ -191,6 +191,12 @@ export default {
   'ホーム画面のアイコンは、一度消してから追加し直すと変わります': 'The home screen icon changes when you remove the app and add it again',
   丸と弧: 'Circle and arc',
   半分の丸: 'Split circle',
+  支払いの間隔: 'Payment interval',
+  '2か月ごと（隔月）': 'Every 2 months',
+  '3か月ごと': 'Every 3 months',
+  '6か月ごと': 'Every 6 months',
+  '1年ごと': 'Once a year',
+  '水道代のように隔月の物は、ここで間隔を選びます。「いつから」の月が基準になります。': 'For things paid every other month, such as water, choose the interval here. It is counted from the starting month.',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

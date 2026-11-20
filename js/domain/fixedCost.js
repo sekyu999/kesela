@@ -5,14 +5,47 @@
 //   ・取引の ID は「固定費の ID ＋ 月」から決める。別の端末が同時に作っても同じ ID になり、増えない
 //   ・引き落とし日が来ているかに関係なく、その月の分は月初にまとめて作る
 import { addMonths } from './plans.js';
+import { monthsBetween } from './kakeibo.js';
 
 /** 一度に作る月の上限（長く開かなかった時に作りすぎないように） */
 export const MAX_MONTHS = 24;
 
-/** その月に有効な固定費か */
+/**
+ * 支払いの間隔（何か月ごとか）。水道代のように隔月の物に使う。
+ * 「いつから」の月を基準に、その間隔で来る月だけ記録に入る。
+ */
+export const CYCLES = [
+  { months: 1, label: '毎月' },
+  { months: 2, label: '2か月ごと（隔月）' },
+  { months: 3, label: '3か月ごと' },
+  { months: 6, label: '6か月ごと' },
+  { months: 12, label: '1年ごと' },
+];
+
+/** 間隔の数（指定が無い・おかしい時は毎月） */
+export function cycleOf(fc) {
+  const n = Math.floor(Number(fc?.everyMonths));
+  return CYCLES.some((c) => c.months === n) ? n : 1;
+}
+
+/** 一覧に出す短い言い方（毎月の時は空） */
+export function cycleLabel(fc) {
+  const n = cycleOf(fc);
+  return n === 1 ? '' : (CYCLES.find((c) => c.months === n)?.label ?? '');
+}
+
+/**
+ * その月に有効な固定費か。
+ * 隔月などは「いつから」の月から数えて、間隔の倍数の月だけ有効にする
+ */
 export function isActiveIn(fc, month) {
   if (fc.startMonth && month < fc.startMonth) return false;
   if (fc.endMonth && month > fc.endMonth) return false;
+  const every = cycleOf(fc);
+  if (every > 1 && fc.startMonth) {
+    const diff = monthsBetween(fc.startMonth, month);
+    if (diff < 0 || diff % every !== 0) return false;
+  }
   return true;
 }
 
@@ -135,5 +168,9 @@ export function validateFixedCostInput(raw, thisMonthValue) {
   if (Object.keys(errors).length) return { ok: false, errors };
   const colorIndex = Number.isFinite(Number(raw.colorIndex)) ? Number(raw.colorIndex) : 0;
   const samples = raw.samples && typeof raw.samples === 'object' ? raw.samples : {};
-  return { ok: true, value: { type, name, amount, categoryId: null, colorIndex, samples, dayOfMonth, startMonth, endMonth, memo } };
+  const everyMonths = cycleOf({ everyMonths: raw.everyMonths });
+  return {
+    ok: true,
+    value: { type, name, amount, categoryId: null, colorIndex, samples, everyMonths, dayOfMonth, startMonth, endMonth, memo },
+  };
 }
