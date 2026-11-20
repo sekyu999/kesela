@@ -90,27 +90,48 @@ export function resolveBudget(budgets, month, categoryId = null) {
 }
 
 /**
- * カテゴリごとの金額（多い順）。ratio はその種類の合計に対する割合
- * @returns {Array<{categoryId:string|null, name:string, colorIndex:number, amount:number, ratio:number}>}
+ * その月・そのカテゴリに「じかに設定されている」予算（無ければ null）。
+ * resolveBudget は既定にさかのぼって返すが、こちらは設定画面で中身を出すために使う
  */
-export function byCategory(transactions, categories, type = 'expense') {
+export function rawBudget(budgets, month, categoryId = null) {
+  const target = categoryId ?? null;
+  const hit = budgets.find((b) => (b.month ?? null) === (month ?? null) && (b.categoryId ?? null) === target);
+  return hit ? (Number(hit.amount) || 0) : null;
+}
+
+/**
+ * 円グラフ・一覧用のまとまり（多い順）。ratio はその種類の合計に対する割合。
+ * 固定費から入った記録は、カテゴリではなく**固定費そのもの**（名前と色）でまとめる。
+ * @returns {Array<{key:string, categoryId:string|null, fixedCostId:string|null,
+ *                  name:string, colorIndex:number, amount:number, ratio:number}>}
+ */
+export function byCategory(transactions, categories, fixedCosts = [], type = 'expense') {
   const rows = transactions.filter((t) => t.type === type);
   const total = sumAmount(rows);
-  const byId = new Map();
-  for (const t of rows) byId.set(t.categoryId ?? null, (byId.get(t.categoryId ?? null) ?? 0) + (Number(t.amount) || 0));
   const catById = new Map(categories.map((c) => [c.id, c]));
-  return [...byId.entries()]
-    .map(([categoryId, amount], i) => {
-      const c = catById.get(categoryId) ?? null;
-      return {
-        categoryId,
-        name: c?.name ?? '未分類',
-        colorIndex: c?.colorIndex ?? i % PALETTE_SIZE,
-        amount,
-        ratio: total ? amount / total : 0,
-      };
-    })
-    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'ja'));
+  const fxById = new Map(fixedCosts.map((f) => [f.id, f]));
+  const groups = new Map();
+
+  for (const t of rows) {
+    const fx = t.fixedCostId ? fxById.get(t.fixedCostId) : null;
+    const c = fx ? null : catById.get(t.categoryId);
+    const key = fx ? `fx:${fx.id}` : `c:${t.categoryId ?? ''}`;
+    const g = groups.get(key) ?? {
+      key,
+      categoryId: fx ? null : (t.categoryId ?? null),
+      fixedCostId: fx?.id ?? null,
+      name: fx ? fx.name : (c?.name ?? '未分類'),
+      colorIndex: (fx ? fx.colorIndex : c?.colorIndex) ?? 0,
+      order: fx ? 10000 : (c?.defaultOrder ?? 9999),
+      amount: 0,
+    };
+    g.amount += Number(t.amount) || 0;
+    groups.set(key, g);
+  }
+
+  return [...groups.values()]
+    .map((g) => ({ ...g, ratio: total ? g.amount / total : 0 }))
+    .sort((a, b) => b.amount - a.amount || a.order - b.order || a.name.localeCompare(b.name, 'ja'));
 }
 
 /**

@@ -100,6 +100,7 @@ const APP_FILES = [
   'js/ui/storeBadge.js',
   'js/ui/themeList.js',
   'js/ui/toast.js',
+  'js/ui/weekStart.js',
   'vendor/dexie-cloud-addon.mjs',
   'vendor/dexie.mjs',
 ];

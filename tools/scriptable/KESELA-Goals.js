@@ -153,19 +153,11 @@ function writeCache(data) {
 
 // ---------- 見た目 ----------
 
-const LIMITS = { small: 5, medium: 6, large: 16, accessoryRectangular: 2 };
+const LIMITS = { small: 6, medium: 7, large: 18, accessoryRectangular: 2 };
 
-function timeText(iso) {
-  const d = new Date(iso);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-/** 出す行：未チェックの ToDo を先に。余りがあれば見出しと済みの ToDo も */
+/** 出す行：アプリで書いてある順のまま（並べ替えも選り分けもしない） */
 function pickLines(data, limit) {
-  const todo = data.lines.filter((l) => l.type === 'todo' && !l.checked);
-  const rest = data.lines.filter((l) => l.type === 'heading' || (l.type === 'todo' && l.checked));
-  return [...todo, ...rest].slice(0, limit);
+  return data.lines.slice(0, limit);
 }
 
 function buildWidget(data, family, note) {
@@ -186,43 +178,28 @@ function buildWidget(data, family, note) {
 
   if (family === 'accessoryCircular') {
     w.addAccessoryWidgetBackground = true;
-    const t = w.addText(`${data.done}/${data.total}`);
-    t.font = Font.boldSystemFont(15);
+    const t = w.addText(lines[0]?.text ?? '目標');
+    t.font = Font.systemFont(11);
     t.centerAlignText();
-    const s = w.addText('目標');
-    s.font = Font.systemFont(9);
-    s.centerAlignText();
+    t.minimumScaleFactor = 0.6;
+    t.lineLimit = 3;
     return w;
   }
   if (family === 'accessoryRectangular') {
-    const h = w.addText(`目標 ${data.done}/${data.total}`);
-    h.font = Font.boldSystemFont(13);
     for (const l of lines.slice(0, LIMITS.accessoryRectangular)) {
-      const t = w.addText(l.text);
-      t.font = Font.systemFont(12);
+      const t = w.addText(l.type === 'todo' ? `${l.checked ? '☑' : '☐'} ${l.text}` : l.text);
+      t.font = l.type === 'heading' ? Font.boldSystemFont(13) : Font.systemFont(12);
       t.lineLimit = 1;
     }
     return w;
   }
   if (family === 'accessoryInline') {
-    w.addText(lines.length ? `目標：${lines[0].text}` : `目標 ${data.done}/${data.total}`);
+    w.addText(lines.length ? lines[0].text : '目標');
     return w;
   }
 
   w.backgroundColor = BG;
   w.setPadding(12, 14, 10, 14);
-  const head = w.addStack();
-  head.centerAlignContent();
-  const title = head.addText('目標');
-  title.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
-  title.textColor = ACCENT;
-  head.addSpacer();
-  if (data.total) {
-    const c = head.addText(`${data.done}/${data.total}`);
-    c.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
-    c.textColor = SUB;
-  }
-  w.addSpacer(6);
 
   if (!lines.length) {
     const t = w.addText('まだ何も書かれていません');
@@ -238,7 +215,7 @@ function buildWidget(data, family, note) {
       h.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
       h.textColor = ACCENT;
       h.lineLimit = 1;
-    } else {
+    } else if (l.type === 'todo') {
       const box = row.addText(l.checked ? '☑ ' : '☐ ');
       box.font = Font.systemFont(family === 'small' ? 12 : 13);
       box.textColor = l.checked ? SUB : ACCENT;
@@ -252,16 +229,25 @@ function buildWidget(data, family, note) {
         m.font = Font.systemFont(11);
         m.textColor = !l.checked && l.month < now ? WARN : SUB;
       }
+    } else {
+      // 箇条書き・本文も、書いてある通りに出す（本文が消えないように）
+      const n = row.addText(l.type === 'bullet' ? `・${l.text}` : l.text);
+      n.font = Font.systemFont(family === 'small' ? 12 : 13);
+      n.textColor = TEXT;
+      n.lineLimit = family === 'small' ? 1 : 2;
+      n.minimumScaleFactor = 0.8;
     }
     row.addSpacer();
     w.addSpacer(3);
   }
 
   w.addSpacer();
-  const at = w.addText(note ? `${note}・${timeText(data.at)}` : timeText(data.at));
-  at.font = Font.systemFont(10);
-  at.textColor = SUB;
-  at.rightAlignText();
+  if (note) {
+    const n = w.addText(note);
+    n.font = Font.systemFont(10);
+    n.textColor = SUB;
+    n.rightAlignText();
+  }
   return w;
 }
 
@@ -301,7 +287,7 @@ if (config.runsInWidget) {
     a.title = error ? '読み込めませんでした' : '読み込めました';
     a.message = error
       ? String(error.message ?? error)
-      : `ToDo ${data.done}/${data.total}\n${pickLines(data, 5).map((l) => l.text).join('\n')}`;
+      : pickLines(data, 8).map((l) => l.text).join('\n');
     a.addAction('OK');
     await a.presentAlert();
   } else if (pick === 4) {

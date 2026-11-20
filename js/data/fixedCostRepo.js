@@ -24,6 +24,8 @@ export async function saveFixedCost(id, raw) {
   const old = id ? await db.fixedCosts.get(id) : null;
   const row = { id: id ?? newId(), ...r.value, createdAt: old?.createdAt ?? now, updatedAt: now };
   await db.fixedCosts.put(row);
+  // 足した・直したらその場で今月の記録に入れる（月初を待たずに「使っていいお金」に反映される）
+  await generateFixedRows();
   return row;
 }
 
@@ -74,8 +76,8 @@ export async function applyToMonth(fixedCostId, month) {
 export async function generateFixedRows() {
   const now = thisMonth();
   const last = await getMeta(META.fixedGeneratedMonth);
-  const months = monthsToGenerate(last, now);
-  if (!months.length) return 0;
+  // 今月は毎回見る（固定費を足した直後にも入るように）。過ぎた月は前に作った月の次から
+  const months = [...new Set([...monthsToGenerate(last, now), now])].sort();
 
   const fixedCosts = await db.fixedCosts.toArray();
   let made = 0;

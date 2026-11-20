@@ -74,12 +74,33 @@ test('カテゴリ別は多い順、割合は支出合計に対して', () => {
     { id: 'c1', name: '食費', colorIndex: 0 },
     { id: 'c2', name: '日用品', colorIndex: 1 },
   ];
-  const rows = byCategory([tx('expense', 30000), tx('expense', 10000, { categoryId: 'c2' }), tx('income', 99999)], cats);
+  const rows = byCategory([tx('expense', 30000), tx('expense', 10000, { categoryId: 'c2' }), tx('income', 99999)], cats, []);
   assert.deepEqual(
     rows.map((r) => [r.name, r.amount, Math.round(r.ratio * 100)]),
     [
       ['食費', 30000, 75],
       ['日用品', 10000, 25],
+    ]
+  );
+});
+
+test('固定費はカテゴリではなく固定費の名前と色でまとめる', () => {
+  const cats = [{ id: 'c1', name: '食費', colorIndex: 0 }];
+  const fixed = [{ id: 'f1', name: '家賃', colorIndex: 4 }];
+  const rows = byCategory(
+    [
+      tx('expense', 80000, { categoryId: null, fixedCostId: 'f1', source: 'fixed' }),
+      tx('expense', 12000, { categoryId: null, fixedCostId: 'f1', source: 'fixed' }),
+      tx('expense', 30000),
+    ],
+    cats,
+    fixed
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.amount, r.colorIndex, r.fixedCostId]),
+    [
+      ['家賃', 92000, 4, 'f1'],
+      ['食費', 30000, 0, null],
     ]
   );
 });

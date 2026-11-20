@@ -1,17 +1,18 @@
 // 家計タブ：上のセグメントで「今月（実績）」「カレンダー」「予定（買いたい物・やりたい事）」を切り替える
 //
-// ・今月  … 実際に発生した収入・支出の集計。家計簿の中心
-// ・カレンダー … 日ごとの支出
+// ・今月  … かんたん入力と、今月のお金の様子（収入・支出・貯金・使えるお金・何に使ったか）
+// ・カレンダー … 日ごとの支出と、日付ごとにまとめた記録
 // ・予定  … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
 import { watch } from '../ui/live.js';
 import { toast } from '../ui/toast.js';
 import { listByMonth, monthlySavings } from '../data/transactionRepo.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
+import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
 import { listBudgets } from '../data/budgetRepo.js';
-import { generateFixedRows } from '../data/fixedCostRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
 import { summarize, resolveBudget, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
+import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
 import { openTransactionSheet, quickFormHtml, bindQuickForm } from './kakeiboSheet.js';
 import { openKakeiboSettings } from './kakeiboSettings.js';
@@ -29,7 +30,12 @@ const SEGMENTS = [
 /** 画面を離れても覚えておく */
 let segment = 'month';
 let viewMonth = null;
-let showAll = false;
+
+/** 下のタブで「家計」をもう一度押した時は、いちばん左のセグメントに戻す */
+export function resetSegment() {
+  segment = SEGMENTS[0].key;
+  viewMonth = thisMonth();
+}
 
 export function mount(el) {
   viewMonth ??= thisMonth();
@@ -58,16 +64,15 @@ export function mount(el) {
     show();
   });
 
-  // 固定費を記録に起こす（月が変わった時だけ動く。何度呼んでも増えない）
-  generateFixedRows()
-    .then((n) => n && toast(t('固定費 {n}件を今月の記録に入れました', { n })))
-    .catch((e) => console.error(e));
+  // 固定費を記録に起こす（足した直後・月が変わった時に入る。何度呼んでも増えない）
+  generateFixedRows().catch((e) => console.error(e));
 
   show();
   return () => stop?.();
 }
 
-/** 月を切り替える部分 */
+// ===================== 月の切り替え =====================
+
 function monthNavHtml(month) {
   const now = thisMonth();
   return `<div class="month-nav">
@@ -78,20 +83,26 @@ function monthNavHtml(month) {
   </div>`;
 }
 
-function bindMonthNav(el, redraw) {
+/**
+ * 月を切り替える処理。
+ * 月が変わったら読み直す（読み直さないと、前の月の記録を今の月のカレンダーに描いてしまう）
+ */
+function bindMonthNav(el, onChange) {
   el.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-move]');
     if (!btn) return;
     viewMonth = btn.dataset.move === 'now' ? thisMonth() : addMonths(viewMonth, Number(btn.dataset.move));
-    showAll = false;
-    redraw();
+    onChange();
   });
 }
 
-/** ① 今月：かんたん入力・収入・支出・貯金額・使えるお金・カテゴリ別・明細 */
+// ===================== ① 今月 =====================
+
 function mountMonth(el) {
   let state = null;
   let catKey = null; // カテゴリの一覧が変わった時だけ入力欄を作り直すための印
+  let quick = null;
+  let stop = null;
 
   el.innerHTML = `
     <div class="stack">
@@ -102,47 +113,30 @@ function mountMonth(el) {
   const navEl = el.querySelector('[data-nav]');
   const quickEl = el.querySelector('[data-quick]');
   const bodyEl = el.querySelector('[data-body]');
-  let quick = null;
-  bindMonthNav(navEl, () => render());
+
+  bindMonthNav(navEl, () => subscribe());
 
   el.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    switch (btn.dataset.action) {
-      case 'edit':
-        openTransactionSheet(btn.dataset.id);
-        break;
-      case 'all':
-        showAll = true;
-        render();
-        break;
-      case 'settings':
-        openKakeiboSettings(viewMonth);
-        break;
-    }
+    if (btn?.dataset.action === 'settings') openKakeiboSettings(viewMonth);
   });
 
   function render() {
     if (!state) return;
-    const { rows, categories, budgets, savingsGoal } = state;
-
-    // 月の切り替え（中身だけ描き直す。処理は上で1回だけ付けてある）
+    const { rows, categories, fixedCosts, budgets, savingsGoal } = state;
     navEl.innerHTML = monthNavHtml(viewMonth);
 
     // かんたん入力（カテゴリの一覧が変わった時だけ作り直す。書いている途中を消さないため）
-    const nextKey = categories.map((c) => `${c.id}:${c.name}:${c.colorIndex}:${c.type}`).join('|');
+    const nextKey = categories.map((c) => `${c.id}:${c.name}:${c.colorIndex}`).join('|');
     if (nextKey !== catKey) {
       catKey = nextKey;
       quick?.destroy();
-      quickEl.innerHTML = quickFormHtml(categories);
+      quickEl.innerHTML = quickFormHtml();
       quick = bindQuickForm(quickEl, categories);
     }
 
-    const monthBudget = resolveBudget(budgets, viewMonth);
-    const s = summarize(rows, { savingsGoal, budget: monthBudget });
-    const cats = byCategory(rows, categories);
-    const slices = donutSlices(cats);
-    const shown = showAll ? rows : rows.slice(0, 10);
+    const s = summarize(rows, { savingsGoal, budget: resolveBudget(budgets, viewMonth) });
+    const cats = byCategory(rows, categories, fixedCosts);
 
     bodyEl.innerHTML = `
       <section class="card">
@@ -154,48 +148,45 @@ function mountMonth(el) {
         ${freeHtml(s)}
       </section>
       ${budgetHtml(s)}
-      ${cats.length ? donutHtml(slices, s.expense) : ''}
-      <section>
-        <h2 class="section-title">${t('記録')}<span>${t('{n}件', { n: rows.length })}</span></h2>
-        ${
-          rows.length
-            ? `<ul class="list compact-list">${shown.map((r) => rowHtml(r, categories)).join('')}</ul>
-               ${!showAll && rows.length > shown.length ? `<button type="button" class="btn btn-block" data-action="all">${t('すべて見る')}</button>` : ''}`
-            : `<div class="placeholder">${t('上の欄に金額を入れて「記録する」を押すと、ここに並びます。')}</div>`
-        }
-      </section>
+      ${cats.length ? donutHtml(donutSlices(cats), s.expense) : ''}
       <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・カテゴリ・貯金目標を設定')}</button>`;
   }
 
-  const stop = watch(
-    async () => ({
-      rows: await listByMonth(viewMonth),
-      categories: await listExpenseCategories(),
-      budgets: await listBudgets(),
-      savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
-    }),
-    (s) => {
-      state = s;
-      render();
-    }
-  );
+  /** その月のデータを読み直す（月を切り替えた時にも呼ぶ） */
+  function subscribe() {
+    stop?.();
+    stop = watch(
+      async () => ({
+        rows: await listByMonth(viewMonth),
+        categories: await listExpenseCategories(),
+        fixedCosts: await listFixedCosts(),
+        budgets: await listBudgets(),
+        savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
+      }),
+      (s) => {
+        state = s;
+        render();
+      }
+    );
+  }
+  subscribe();
+
   return () => {
     quick?.destroy();
-    stop();
+    stop?.();
   };
 }
 
 /** 「今月自由に使えるお金」。貯金目標・収入が未設定の時は案内を出す */
 function freeHtml(s) {
   if (!s.hasIncome) {
-    return `<p class="notice kb-notice">${t('今月の収入がまだ記録されていません。給与を「固定収入」として登録すると、月初から使えるお金が分かります。')}</p>`;
+    return `<p class="notice kb-notice">${t('今月の収入がまだ記録されていません。給与を「固定収入」として登録してください。')}</p>`;
   }
   if (s.free === null) {
     return `<p class="notice kb-notice">${t('貯金目標を決めると、今月自由に使えるお金が出せます。')}</p>`;
   }
-  const used = s.expense + s.savingsGoal;
-  const total = Math.max(s.income, used);
-  const pct = (n) => `${total ? (n / total) * 100 : 0}%`;
+  const total = Math.max(s.income, s.expense + s.savingsGoal, 1);
+  const pct = (n) => `${(n / total) * 100}%`;
   return `<div class="kb-free ${s.free < 0 ? 'is-over' : ''}">
     <div class="kb-free-head"><span>${t('今月自由に使えるお金')}</span><strong>${money(s.free)}</strong></div>
     <div class="kb-bar" role="img" aria-label="${esc(t('収入{income}、支出{expense}、貯金目標{goal}', { income: money(s.income), expense: money(s.expense), goal: money(s.savingsGoal) }))}">
@@ -222,21 +213,35 @@ function budgetHtml(s) {
   </section>`;
 }
 
-/** カテゴリ別の円グラフ（ドーナツ）と一覧 */
+/** 何に使ったか：円グラフ（名前を輪の中に出す）と一覧 */
 function donutHtml(slices, total) {
   // 半径 15.9155 の円は一周がちょうど 100。長さをそのまま割合（％）として使える
+  const R = 15.9155;
   const ring = slices
     .map(
-      (s) => `<circle class="kb-slice" cx="21" cy="21" r="15.9155" fill="none" stroke="var(--swatch-${(s.colorIndex ?? 0) + 1})"
-        stroke-width="7" stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"></circle>`
+      (s) => `<circle class="kb-slice" cx="21" cy="21" r="${R}" fill="none" stroke="var(--swatch-${(s.colorIndex ?? 0) + 1})"
+        stroke-width="10" stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"></circle>`
     )
+    .join('');
+  // 輪の上に名前を置く（小さすぎる区切りは文字が入らないので出さない）
+  const labels = slices
+    .filter((s) => s.ratio >= 0.1)
+    .map((s) => {
+      const mid = ((s.offset + s.length / 2) / 100) * 2 * Math.PI - Math.PI / 2;
+      const x = 21 + Math.cos(mid) * R;
+      const y = 21 + Math.sin(mid) * R;
+      return `<text class="kb-slice-label" x="${x.toFixed(2)}" y="${y.toFixed(2)}">${esc(s.name)}</text>`;
+    })
     .join('');
   return `<section class="card">
     <h2 class="card-title">${t('何に使ったか')}</h2>
     <div class="kb-donut-wrap">
       <svg class="kb-donut" viewBox="0 0 42 42" role="img" aria-label="${esc(t('カテゴリ別の支出'))}">
-        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--border)" stroke-width="7"></circle>
-        ${ring}
+        <g transform="rotate(-90 21 21)">
+          <circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--border)" stroke-width="10"></circle>
+          ${ring}
+        </g>
+        ${labels}
       </svg>
       <ul class="kb-legend">
         ${slices
@@ -253,24 +258,19 @@ function donutHtml(slices, total) {
   </section>`;
 }
 
-/** 明細の1行 */
-function rowHtml(r, categories) {
-  const c = categories.find((x) => x.id === r.categoryId);
-  return `<li class="kb-row ${r.type === 'income' ? 'is-income' : ''}">
-    <button type="button" class="row-button" data-action="edit" data-id="${r.id}">
-      <span class="kb-date">${dateShort(r.date)}</span>
-      <span class="kb-dot" style="background:var(--swatch-${(c?.colorIndex ?? 0) + 1})" aria-hidden="true"></span>
-      <span class="grow kb-name">${esc(c?.name ?? t('未分類'))}${r.memo ? `<span class="kb-memo">${esc(r.memo)}</span>` : ''}${
-        r.source === 'fixed' ? `<span class="badge badge-muted">${t('固定')}</span>` : ''
-      }</span>
-      <span class="kb-amount">${r.type === 'income' ? '+' : ''}${money(r.amount)}</span>
-    </button>
-  </li>`;
-}
+// ===================== ② カレンダー =====================
 
-/** ② カレンダー：日ごとの支出 */
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
 function mountCalendar(el) {
   let state = null;
+  let stop = null;
+
+  el.innerHTML = `<div class="stack"><div data-nav></div><div data-body></div></div>`;
+  const navEl = el.querySelector('[data-nav]');
+  const bodyEl = el.querySelector('[data-body]');
+
+  bindMonthNav(navEl, () => subscribe());
 
   el.addEventListener('click', (e) => {
     const day = e.target.closest('[data-day]');
@@ -278,16 +278,19 @@ function mountCalendar(el) {
       openTransactionSheet(null, { date: day.dataset.day });
       return;
     }
-    const btn = e.target.closest('[data-action]');
-    if (btn?.dataset.action === 'edit') openTransactionSheet(btn.dataset.id);
+    const btn = e.target.closest('[data-action="edit"]');
+    if (btn) openTransactionSheet(btn.dataset.id);
   });
 
   function render() {
     if (!state) return;
-    const { rows, categories } = state;
+    const { rows, categories, fixedCosts } = state;
+    navEl.innerHTML = monthNavHtml(viewMonth);
+
     const [y, m] = viewMonth.split('-').map(Number);
     const last = new Date(y, m, 0).getDate();
-    const firstDow = new Date(y, m - 1, 1).getDay();
+    const start = weekStart();
+    const firstDow = (new Date(y, m - 1, 1).getDay() - start + 7) % 7;
     const perDay = new Map();
     for (const r of rows) {
       const d = Number(r.date.slice(8, 10));
@@ -303,40 +306,73 @@ function mountCalendar(el) {
     for (let d = 1; d <= last; d++) {
       const date = `${viewMonth}-${String(d).padStart(2, '0')}`;
       const v = perDay.get(d);
-      const heat = v ? Math.round((v.expense / max) * 100) : 0;
       cells.push(`<li class="kb-cal-cell ${date === today ? 'is-today' : ''}">
         <button type="button" data-day="${date}" aria-label="${esc(t('{date}に記録する', { date }))}">
           <span class="kb-cal-d">${d}</span>
-          ${v?.expense ? `<span class="kb-cal-sum" style="--heat:${heat}%">${money(v.expense)}</span>` : ''}
-          ${v?.income ? `<span class="kb-cal-in" aria-hidden="true"></span>` : ''}
+          ${v?.expense ? `<span class="kb-cal-sum" style="--heat:${Math.round((v.expense / max) * 100)}%">${money(v.expense)}</span>` : ''}
+          ${v?.income ? '<span class="kb-cal-in" aria-hidden="true"></span>' : ''}
         </button>
       </li>`);
     }
 
-    el.innerHTML = `
-      <div class="stack">
-        ${monthNavHtml(viewMonth)}
-        <ul class="kb-cal-dow" aria-hidden="true">${['日', '月', '火', '水', '木', '金', '土'].map((d) => `<li>${t(d)}</li>`).join('')}</ul>
-        <ul class="kb-cal">${cells.join('')}</ul>
-        <section>
-          <h2 class="section-title">${t('記録')}<span>${t('{n}件', { n: rows.length })}</span></h2>
-          ${
-            rows.length
-              ? `<ul class="list compact-list">${rows.map((r) => rowHtml(r, categories)).join('')}</ul>`
-              : `<div class="placeholder">${t('この月の記録はまだありません。')}</div>`
-          }
-        </section>
-      </div>`;
-    bindMonthNav(el.querySelector('.month-nav'), render);
+    bodyEl.innerHTML = `
+      <ul class="kb-cal-dow" aria-hidden="true">${weekDays(DOW).map((d) => `<li>${t(d)}</li>`).join('')}</ul>
+      <ul class="kb-cal">${cells.join('')}</ul>
+      ${dayListHtml(rows, categories, fixedCosts)}`;
   }
 
-  return watch(
-    async () => ({ rows: await listByMonth(viewMonth), categories: await listExpenseCategories() }),
-    (s) => {
-      state = s;
-      render();
-    }
-  );
+  function subscribe() {
+    stop?.();
+    stop = watch(
+      async () => ({
+        rows: await listByMonth(viewMonth),
+        categories: await listExpenseCategories(),
+        fixedCosts: await listFixedCosts(),
+      }),
+      (s) => {
+        state = s;
+        render();
+      }
+    );
+  }
+  subscribe();
+
+  return () => stop?.();
+}
+
+/** 記録を日付ごとにまとめた一覧（色の丸とメモだけ。カテゴリ名は丸の色で表す） */
+function dayListHtml(rows, categories, fixedCosts) {
+  if (!rows.length) return `<div class="placeholder">${t('この月の記録はまだありません。')}</div>`;
+  const catById = new Map(categories.map((c) => [c.id, c]));
+  const fxById = new Map(fixedCosts.map((f) => [f.id, f]));
+  const days = new Map();
+  for (const r of rows) {
+    if (!days.has(r.date)) days.set(r.date, []);
+    days.get(r.date).push(r);
+  }
+  return [...days.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, list]) => {
+      const total = list.reduce((s, r) => s + (r.type === 'expense' ? Number(r.amount) || 0 : 0), 0);
+      return `<section class="kb-day">
+        <h3 class="section-title kb-day-head"><span>${dateShort(date)}</span><span>${money(total)}</span></h3>
+        <ul class="list compact-list">${list.map((r) => dayRowHtml(r, catById, fxById)).join('')}</ul>
+      </section>`;
+    })
+    .join('');
+}
+
+function dayRowHtml(r, catById, fxById) {
+  const fx = r.fixedCostId ? fxById.get(r.fixedCostId) : null;
+  const src = fx ?? catById.get(r.categoryId);
+  const name = fx?.name ?? catById.get(r.categoryId)?.name ?? t('未分類');
+  return `<li class="kb-row ${r.type === 'income' ? 'is-income' : ''}">
+    <button type="button" class="row-button" data-action="edit" data-id="${r.id}">
+      <span class="kb-dot" style="background:var(--swatch-${(src?.colorIndex ?? 0) + 1})" aria-hidden="true"></span>
+      <span class="grow kb-name">${r.memo ? esc(r.memo) : `<span class="kb-memo">${esc(name)}</span>`}<span class="visually-hidden">${esc(name)}</span></span>
+      <span class="kb-amount">${r.type === 'income' ? '+' : ''}${money(r.amount)}</span>
+    </button>
+  </li>`;
 }
 
 /** ほかの画面から「この月を見る」用 */

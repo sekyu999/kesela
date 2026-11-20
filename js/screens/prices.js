@@ -17,6 +17,7 @@ import {
   getOrderedCategories,
   saveShelfOrder,
   setStoreColor,
+  saveStoreOrder,
 } from '../data/storeRepo.js';
 import { listAllRecords, listByProduct, deleteStorePrice } from '../data/priceRepo.js';
 import { compareStores, UNIT_BASE } from '../domain/pricing.js';
@@ -257,15 +258,20 @@ function renderStores(body) {
     },
     (stores) => {
       body.innerHTML = stores.length
-        ? `<ul class="list">${stores
+        ? `<p class="note">${t('≡ を押さえると並べ替えられます。')}</p>
+          <ul class="list store-list">${stores
             .map(
-              (s) => `<li><button type="button" class="row-button" data-action="store" data-id="${s.id}">
+              (s) => `<li data-id="${s.id}">
+                ${dragHandle(esc(s.name))}
+                <button type="button" class="row-button" data-action="store" data-id="${s.id}">
                 ${storeBadgeHtml(s)}
                 <span class="grow">${esc(s.name)}<span class="note" style="display:block">${t('価格記録 {n}件', { n: s.records })}</span></span>
                 <span class="note">›</span></button></li>`
             )
             .join('')}</ul>`
         : `<div class="placeholder">${t('右下の「＋ 店舗」から、よく行くお店を登録してください。')}</div>`;
+      const list = body.querySelector('.store-list');
+      if (list) makeSortable(list, { onSort: saveStoreOrder });
     }
   );
 }

@@ -15,7 +15,7 @@ import { newId } from '../lib/util.js';
 export const APP_ID = 'kesela';
 /** 以前のアプリ名（この名前のバックアップも読み込める） */
 export const OLD_APP_IDS = ['yuteli'];
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * 読み込み失敗の結果。error は日本語の文（テスト・ログ用）、
@@ -53,7 +53,8 @@ const RULES = {
               : !isBoolOrNone(r.trackStock)
                 ? 'trackStock'
                 : null,
-  stores: (r) => (!isStr(r.name) ? 'name' : !isNumOrNone(r.colorIndex) ? 'colorIndex' : null),
+  stores: (r) =>
+    !isStr(r.name) ? 'name' : !isNumOrNone(r.colorIndex) ? 'colorIndex' : !isNumOrNone(r.sortOrder) ? 'sortOrder' : null,
   storeShelfOrders: (r) =>
     !isStr(r.storeId) ? 'storeId' : !isStr(r.categoryId) ? 'categoryId' : !isNum(r.sortOrder) ? 'sortOrder' : null,
   shoppingListItems: (r) =>
@@ -101,11 +102,15 @@ const RULES = {
           ? 'amount'
           : !isStrOrNull(r.categoryId)
             ? 'categoryId'
-            : !isMonth(r.startMonth)
-              ? 'startMonth'
-              : !isMonth(r.endMonth)
-                ? 'endMonth'
-                : null,
+            : !isNumOrNone(r.colorIndex)
+              ? 'colorIndex'
+              : !(r.samples === undefined || (r.samples && typeof r.samples === 'object'))
+                ? 'samples'
+                : !isMonth(r.startMonth)
+                  ? 'startMonth'
+                  : !isMonth(r.endMonth)
+                    ? 'endMonth'
+                    : null,
   budgets: (r) => (!isAmount(r.amount) ? 'amount' : !isMonth(r.month) ? 'month' : !isStrOrNull(r.categoryId) ? 'categoryId' : null),
   priceRecords: (r) =>
     !isStr(r.productId)
@@ -174,6 +179,17 @@ const MIGRATIONS = {
       s2.colorIndex ??= i % PALETTE_SIZE;
     });
     for (const p of b.data.products ?? []) p.trackStock ??= true;
+    return b;
+  },
+  // 版6 → 版7：固定費に色と12か月の金額、お店に並び順
+  7: (b) => {
+    (b.data.stores ?? []).forEach((x, i) => {
+      x.sortOrder ??= i + 1;
+    });
+    (b.data.fixedCosts ?? []).forEach((x, i) => {
+      x.colorIndex ??= i % PALETTE_SIZE;
+      x.samples ??= {};
+    });
     return b;
   },
   // 版4 → 版5：カテゴリを組み直す（v1.12）

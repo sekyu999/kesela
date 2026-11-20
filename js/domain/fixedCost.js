@@ -72,7 +72,7 @@ export function rowsToCreate(fixedCosts, existing, month, createdAt) {
       type: fc.type === 'income' ? 'income' : 'expense',
       amount: Number(fc.amount) || 0,
       date: dateInMonth(month, fc.dayOfMonth),
-      categoryId: fc.categoryId ?? null,
+      categoryId: null, // 固定費はカテゴリを持たない（固定費の名前と色でまとめて見せる）
       memo: '',
       storeId: null,
       fixedCostId: fc.id,
@@ -82,13 +82,18 @@ export function rowsToCreate(fixedCosts, existing, month, createdAt) {
     }));
 }
 
+/** 12か月分の金額を入れる欄の月（1月〜12月） */
+export const SAMPLE_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
 /**
  * 入れた金額の平均（円の整数）。空欄は数に入れない。
  * 電気代のように月で変わる物を「年平均」で登録するために使う。
- * @param {Array<string|number>} amounts
+ * 入れた金額は固定費に残しておき（samples）、あとから見直して計算し直せる。
+ * @param {Array<string|number>|Record<string, any>} amounts 配列でも { '1': 8000, … } でもよい
  * @returns {{ average:number, count:number }}
  */
 export function averageAmount(amounts) {
+  if (amounts && !Array.isArray(amounts)) amounts = SAMPLE_MONTHS.map((m) => amounts[m] ?? amounts[String(m)]);
   const nums = amounts
     .map((v) => Number(String(v ?? '').replace(/[,円\s]/g, ''))) // i18n-ignore
     .filter((n) => Number.isFinite(n) && n > 0);
@@ -113,8 +118,6 @@ export function validateFixedCostInput(raw, thisMonthValue) {
   if (amountText === '') errors.amount = '金額を入力してください';
   else if (!Number.isInteger(amount) || amount <= 0 || amount > 100000000) errors.amount = '1円以上の整数で入力してください';
 
-  if (!raw.categoryId) errors.categoryId = 'カテゴリを選んでください';
-
   const day = Math.floor(Number(raw.dayOfMonth));
   const dayOfMonth = Number.isFinite(day) && day >= 1 && day <= 31 ? day : null;
   if (String(raw.dayOfMonth ?? '').trim() !== '' && dayOfMonth === null) errors.dayOfMonth = '1〜31の日を選んでください';
@@ -130,5 +133,7 @@ export function validateFixedCostInput(raw, thisMonthValue) {
   if (memo.length > 200) errors.memo = '200文字以内にしてください';
 
   if (Object.keys(errors).length) return { ok: false, errors };
-  return { ok: true, value: { type, name, amount, categoryId: raw.categoryId, dayOfMonth, startMonth, endMonth, memo } };
+  const colorIndex = Number.isFinite(Number(raw.colorIndex)) ? Number(raw.colorIndex) : 0;
+  const samples = raw.samples && typeof raw.samples === 'object' ? raw.samples : {};
+  return { ok: true, value: { type, name, amount, categoryId: null, colorIndex, samples, dayOfMonth, startMonth, endMonth, memo } };
 }

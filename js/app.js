@@ -100,6 +100,14 @@ async function start() {
   if (!location.hash && startScreen() === 'goals' && (await goals.hasNote())) history.replaceState(null, '', '#/goals');
   else if (!location.hash) history.replaceState(null, '', `#/${DEFAULT_ROUTE}`);
   window.addEventListener('hashchange', show);
+  // 今いるタブをもう一度押した時は、そのタブのいちばん左のセグメントに戻す
+  // （URL が変わらないので hashchange が起きない。ここで自分で描き直す）
+  document.querySelector('.tabbar').addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-route]');
+    if (!a || a.dataset.route !== currentRoute()) return;
+    ROUTES[a.dataset.route]?.resetSegment?.();
+    show();
+  });
   show();
 
   // アプリを閉じずにしばらく別のアプリにいて戻った時も、目標の画面を出す

@@ -53,12 +53,3 @@ export async function deleteTransaction(id) {
 export async function restoreTransaction(row) {
   await db.transactions.put(row);
 }
-
-/** 直近に使ったカテゴリを使った回数の多い順に（入力シートの並べ替え用） */
-export async function recentCategoryUse(type, days = 30) {
-  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const rows = await db.transactions.where('date').aboveOrEqual(since).toArray();
-  const count = new Map();
-  for (const r of rows) if (r.type === type && r.categoryId) count.set(r.categoryId, (count.get(r.categoryId) ?? 0) + 1);
-  return count;
-}

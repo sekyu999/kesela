@@ -140,6 +140,24 @@ db.version(6)
     }
   });
 
+// 版7：固定費はカテゴリをやめて、名前と色で表す。お店に並び順を付ける（v1.15 の見直し）
+db.version(7)
+  .stores({})
+  .upgrade(async (tx) => {
+    const stores = await tx.table('stores').toArray();
+    stores.sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')));
+    for (let i = 0; i < stores.length; i++) {
+      if (stores[i].sortOrder == null) await tx.table('stores').update(stores[i].id, { sortOrder: i + 1 });
+    }
+    const fixed = await tx.table('fixedCosts').toArray();
+    for (let i = 0; i < fixed.length; i++) {
+      const changes = {};
+      if (fixed[i].colorIndex == null) changes.colorIndex = i % PALETTE_SIZE;
+      if (fixed[i].samples == null) changes.samples = {};
+      if (Object.keys(changes).length) await tx.table('fixedCosts').update(fixed[i].id, changes);
+    }
+  });
+
 /** 並び順のない商品に、カテゴリごと名前順の sortOrder を付ける */
 export function withSortOrder(products) {
   const sorted = [...products].sort((a, b) => a.name.localeCompare(b.name, 'ja'));

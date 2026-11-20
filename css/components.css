@@ -1028,9 +1028,13 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-free-note { font-size: var(--fz-sub); color: var(--text-sub); }
 .kb-notice { margin-top: 12px; }
 
-/* 円グラフ（ドーナツ） */
-.kb-donut-wrap { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
-.kb-donut { flex: 0 0 104px; width: 104px; height: 104px; transform: rotate(-90deg); }
+/* 円グラフ（ドーナツ）。名前は輪の上に出す */
+.kb-donut-wrap { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 10px; }
+.kb-donut { align-self: center; width: 180px; height: 180px; }
+.kb-slice-label {
+  fill: #fff; font-size: 3px; font-weight: 700; text-anchor: middle; dominant-baseline: middle;
+  paint-order: stroke; stroke: rgb(0 0 0 / 0.25); stroke-width: 0.6px; stroke-linejoin: round;
+}
 .kb-slice { transition: none; }
 .kb-legend { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .kb-legend li { display: flex; align-items: center; gap: 7px; min-height: 22px; font-size: var(--fz-sub); }
@@ -1038,9 +1042,8 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-legend-pct { color: var(--text-sub); }
 .kb-legend strong { font-size: var(--fz-sub); }
 .kb-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
-@media (max-width: 374px) {
-  .kb-donut-wrap { flex-direction: column; align-items: stretch; }
-  .kb-donut { align-self: center; }
+@media (max-width: 360px) {
+  .kb-donut { width: 150px; height: 150px; }
 }
 
 /* 明細の1行 */
@@ -1159,3 +1162,15 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .gb-heading { margin-top: 18px; }
 .gb-h1 { margin-top: 24px; }
 .gb-heading:first-child { margin-top: 0; }
+
+/* 日付ごとにまとめた記録（カレンダータブ） */
+.kb-day { margin-top: 14px; }
+.kb-day-head { display: flex; justify-content: space-between; gap: 10px; }
+.kb-day .kb-row .row-button { gap: 10px; }
+
+/* お店の並べ替え */
+.store-list li { display: flex; align-items: center; gap: 4px; }
+.store-list .drag-handle { flex: none; }
+
+/* かんたん入力の「記録する」 */
+.quick-actions { display: block; margin-top: 16px; }

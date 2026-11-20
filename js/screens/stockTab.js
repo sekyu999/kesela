@@ -20,6 +20,11 @@ export function setSegment(key) {
   if (SEGMENTS.some((s) => s.key === key)) segment = key;
 }
 
+/** 下のタブで「在庫」をもう一度押した時は、いちばん左のセグメントに戻す */
+export function resetSegment() {
+  segment = SEGMENTS[0].key;
+}
+
 export function mount(el) {
   el.innerHTML = `
     <div class="segmented stock-seg" role="tablist">

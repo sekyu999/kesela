@@ -6,8 +6,24 @@ import { orderCategories } from '../domain/shelf.js';
 import { ValidationError } from './productRepo.js';
 import { PALETTE_SIZE } from '../domain/kakeibo.js';
 
+/** 自分で並べた順（未設定の物は登録順で後ろ） */
 export function listStores() {
-  return db.stores.toArray().then((l) => l.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+  return db.stores
+    .toArray()
+    .then((l) =>
+      l.sort(
+        (a, b) =>
+          (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) ||
+          String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? ''))
+      )
+    );
+}
+
+/** お店の並び順を保存する */
+export async function saveStoreOrder(ids) {
+  await db.transaction('rw', db.stores, async () => {
+    for (let i = 0; i < ids.length; i++) await db.stores.update(ids[i], { sortOrder: i + 1 });
+  });
 }
 
 export function getStore(id) {
@@ -34,7 +50,7 @@ export async function createStore(rawName) {
     await assertUnique(name);
     // 登録順に色を割り当てる（あとから変えられる）
     const used = await db.stores.count();
-    store = { id: newId(), name, colorIndex: used % PALETTE_SIZE, createdAt: nowIso() };
+    store = { id: newId(), name, colorIndex: used % PALETTE_SIZE, sortOrder: used + 1, createdAt: nowIso() };
     await db.stores.add(store);
   });
   return store;

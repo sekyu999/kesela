@@ -179,12 +179,6 @@ function writeCache(data) {
 
 // ---------- ウィジェットの見た目 ----------
 
-function timeText(iso) {
-  const d = new Date(iso);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
 const WARN = new Color('#d99a1e');
 
 /**
@@ -369,16 +363,12 @@ function buildWidget(data, family, note) {
   }
 
   w.addSpacer();
-  const foot = w.addStack();
-  if (data.pending) {
-    const p = foot.addText('アプリを開いて更新');
-    p.font = Font.systemFont(10);
-    p.textColor = WARN;
+  if (note) {
+    const n = w.addText(note);
+    n.font = Font.systemFont(10);
+    n.textColor = SUB;
+    n.rightAlignText();
   }
-  foot.addSpacer();
-  const at = foot.addText(note ? `${note}・${timeText(data.at)}` : timeText(data.at));
-  at.font = Font.systemFont(10);
-  at.textColor = SUB;
   return w;
 }
 

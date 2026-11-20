@@ -28,6 +28,7 @@ import { makeSortable, dragHandle } from '../ui/sortable.js';
 import { APP_VERSION } from '../lib/version.js';
 import { openProfileSheet, profileSummary } from './profileSheet.js';
 import { START_OPTIONS, startScreen, setStartScreen } from '../ui/startScreen.js';
+import { WEEK_OPTIONS, weekStart, setWeekStart } from '../ui/weekStart.js';
 import { esc } from '../lib/util.js';
 import { t, dateLong, LANG_OPTIONS, getLangPref, setLangPref } from '../lib/i18n.js';
 
@@ -69,6 +70,13 @@ export function mount(el) {
           ).join('')}
         </div>
         <p class="note" style="margin-top:6px">${t('「目標」にすると、閉じずに30分以上ほかのアプリにいて戻った時も目標を表示します')}</p>
+      </section>
+
+      <section>
+        <h2 class="section-title">${t('カレンダーの始まり')}</h2>
+        <div class="segmented font-levels" role="radiogroup" aria-label="${t('カレンダーの始まり')}">
+          ${WEEK_OPTIONS.map((o) => `<button type="button" role="radio" data-week="${o.key}" aria-checked="false">${t(o.label)}</button>`).join('')}
+        </div>
       </section>
 
       <section>
@@ -158,8 +166,34 @@ export function mount(el) {
     if (!b) return;
     setStartScreen(b.dataset.start);
     markStart();
+
+  // ---- カレンダーの始まり ----
+  const markWeek = () =>
+    el.querySelectorAll('[data-week]').forEach((b) =>
+      b.setAttribute('aria-checked', String((b.dataset.week === 'mon' ? 1 : 0) === weekStart()))
+    );
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-week]');
+    if (!b) return;
+    setWeekStart(b.dataset.week);
+    markWeek();
+  });
+  markWeek();
   });
   markStart();
+
+  // ---- カレンダーの始まり ----
+  const markWeek = () =>
+    el.querySelectorAll('[data-week]').forEach((b) =>
+      b.setAttribute('aria-checked', String((b.dataset.week === 'mon' ? 1 : 0) === weekStart()))
+    );
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-week]');
+    if (!b) return;
+    setWeekStart(b.dataset.week);
+    markWeek();
+  });
+  markWeek();
 
   // ---- テーマ ----
   const markTheme = () =>
