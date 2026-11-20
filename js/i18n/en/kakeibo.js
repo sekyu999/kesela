@@ -133,6 +133,36 @@ export default {
   届きそう: 'On track',
   'あと{n}': '{n} short',
   '今の貯金ペース：1か月あたり {pace}（直近3か月の実績）': 'Current saving pace: {pace} a month (last 3 months)',
+  // かんたん入力（v1.15）
+  記録する: 'Record',
+  記録しました: 'Recorded',
+  日付を変えて記録: 'Record with another date',
+  '今日（{date}）の記録になります': 'Will be recorded as today ({date})',
+  '例：スーパー、ランチ': 'e.g. groceries, lunch',
+  '上の欄に金額を入れて「記録する」を押すと、ここに並びます。': 'Enter an amount above and tap Record — it will appear here.',
+  '予算・固定費・カテゴリ・貯金目標を設定': 'Set budget, fixed costs, categories and savings goal',
+  // カテゴリの編集
+  色: 'Colour',
+  'このカテゴリの記録が{n}件あります。': 'This category has {n} record(s).',
+  'まだ記録はありません。': 'No records yet.',
+  '名前と色を変えられます。≡ を押さえると並べ替えられます。': 'You can change the name and colour. Hold ≡ to reorder.',
+  '＋ 支出のカテゴリを追加': '+ Add an expense category',
+  '＋ 収入のカテゴリを追加': '+ Add an income category',
+  追加できませんでした: 'Could not add it',
+  // 年平均
+  年平均を出す: 'Work out a yearly average',
+  '年平均を出す（12か月の金額から）': 'Yearly average (from 12 months)',
+  '電気代のように月で変わる物は、12か月分を入れて平均を出し、その額を毎月の固定費にします。':
+    'For things that vary month to month, such as electricity, enter 12 months and use the average as the monthly fixed cost.',
+  'これまでの記録{n}件から入れる': 'Fill from the {n} existing record(s)',
+  '{n}か月前': '{n} month(s) ago',
+  '{n}か月の平均：{amount}': 'Average of {n} month(s): {amount}',
+  金額を入れると平均が出ます: 'Enter amounts to see the average',
+  この金額にする: 'Use this amount',
+  '年平均 {amount} にしました': 'Set to the yearly average {amount}',
+  // 価格
+  '上の「お店」から登録してください。': 'Add one from the "Stores" tab above.',
+  お店: 'Stores',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

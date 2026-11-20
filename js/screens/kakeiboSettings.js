@@ -3,11 +3,29 @@ import { openSheet } from '../ui/sheet.js';
 import { showErrors, bindErrorClear } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
 import { calcFieldHtml, bindCalcField } from '../ui/calcPad.js';
-import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
+import {
+  listExpenseCategories,
+  addExpenseCategory,
+  updateExpenseCategory,
+  deleteExpenseCategory,
+  saveExpenseCategoryOrder,
+  countTransactionsInCategory,
+} from '../data/expenseCategoryRepo.js';
 import { listBudgets, setBudget } from '../data/budgetRepo.js';
-import { listFixedCosts, getFixedCost, saveFixedCost, deleteFixedCost, countGeneratedRows, applyToMonth } from '../data/fixedCostRepo.js';
+import {
+  listFixedCosts,
+  getFixedCost,
+  saveFixedCost,
+  deleteFixedCost,
+  countGeneratedRows,
+  applyToMonth,
+  pastAmounts,
+} from '../data/fixedCostRepo.js';
 import { getMeta, setMeta, META } from '../data/metaRepo.js';
-import { resolveBudget, validateBudgetAmount } from '../domain/kakeibo.js';
+import { resolveBudget, validateBudgetAmount, PALETTE_SIZE } from '../domain/kakeibo.js';
+import { averageAmount } from '../domain/fixedCost.js';
+import { makeSortable, dragHandle } from '../ui/sortable.js';
+import { colorPickerHtml } from '../ui/storeBadge.js';
 import { thisMonth } from '../domain/plans.js';
 import { ValidationError } from '../data/productRepo.js';
 import { yearOptions, monthOptions } from '../ui/monthPick.js';
@@ -79,6 +97,33 @@ export async function openKakeiboSettings(month = thisMonth()) {
       </form>
 
       <section style="margin-top:8px">
+        <h3 class="section-title">${t('カテゴリ')}</h3>
+        <p class="sheet-lead">${t('名前と色を変えられます。≡ を押さえると並べ替えられます。')}</p>
+        ${['expense', 'income']
+          .map(
+            (type) => `<h4 class="section-title sub">${t(type === 'expense' ? '支出' : '収入')}</h4>
+            <ul class="list compact-list cat-list" data-cat-list="${type}">
+              ${categories
+                .filter((c) => c.type === type)
+                .map(
+                  (c) => `<li data-id="${c.id}">
+                    ${dragHandle(esc(c.name))}
+                    <button type="button" class="row-button" data-cat-edit="${c.id}">
+                      <span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>
+                      <span class="grow">${esc(c.name)}</span><span class="note">›</span>
+                    </button>
+                  </li>`
+                )
+                .join('')}
+            </ul>
+            <button type="button" class="btn btn-block btn-small" data-cat-add="${type}">${t(
+              type === 'expense' ? '＋ 支出のカテゴリを追加' : '＋ 収入のカテゴリを追加'
+            )}</button>`
+          )
+          .join('')}
+      </section>
+
+      <section style="margin-top:18px">
         <h3 class="section-title">${t('固定費・固定収入')}</h3>
         <p class="sheet-lead">${t('毎月決まって出入りするお金。月の初めに1か月分がまとめて記録に入ります。金額が変わる物は平均額を入れてください。')}</p>
         ${
@@ -128,6 +173,34 @@ export async function openKakeiboSettings(month = thisMonth()) {
       toast(t('保存しました'));
       render();
     });
+
+    // カテゴリの追加・編集・並べ替え
+    body.querySelectorAll('[data-cat-add]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const name = window.prompt(t('カテゴリ名'));
+        if (!name?.trim()) return;
+        try {
+          await addExpenseCategory(name, b.dataset.catAdd);
+          render();
+        } catch (err) {
+          toast(t(err?.errors?.name ?? '追加できませんでした'));
+        }
+      })
+    );
+    body.querySelectorAll('[data-cat-edit]').forEach((b) =>
+      b.addEventListener('click', () => openCategorySheet(b.dataset.catEdit, render))
+    );
+    body.querySelectorAll('[data-cat-list]').forEach((ul) =>
+      makeSortable(ul, {
+        onSort: async (ids) => {
+          // 支出・収入それぞれの並びをつなげて保存する
+          const all = [...body.querySelectorAll('[data-cat-list]')].flatMap((x) =>
+            x === ul ? ids : [...x.children].map((li) => li.dataset.id)
+          );
+          await saveExpenseCategoryOrder(all.filter(Boolean));
+        },
+      })
+    );
 
     body.querySelector('[data-add-fixed]').addEventListener('click', () => openFixedCostSheet(null, month, render));
     body.querySelectorAll('[data-fixed]').forEach((b) =>
@@ -214,6 +287,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
           <p class="field-error" data-error-for="memo"></p>
         </div>
         <div class="form-actions">
+          <button type="button" class="btn btn-block" data-average>${t('年平均を出す（12か月の金額から）')}</button>
           <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
           ${
             fc && made
@@ -286,6 +360,10 @@ export async function openFixedCostSheet(id, month, onSaved) {
     }
   });
 
+  form.querySelector('[data-average]').addEventListener('click', () => {
+    openAverageSheet(fc?.id ?? null, (n) => pad.reset(String(n)));
+  });
+
   form.querySelector('[data-apply]')?.addEventListener('click', async () => {
     await applyToMonth(fc.id, month);
     toast(t('{month}の記録に反映しました', { month: monthText(month, null) }));
@@ -306,4 +384,124 @@ export async function openFixedCostSheet(id, month, onSaved) {
   });
 
   return sheet;
+}
+
+/** カテゴリの名前・色を直すシート */
+async function openCategorySheet(id, onSaved) {
+  const categories = await listExpenseCategories();
+  const cat = categories.find((c) => c.id === id);
+  if (!cat) return;
+  const used = await countTransactionsInCategory(id);
+
+  const sheet = openSheet({
+    title: t('カテゴリ'),
+    body: `
+      <form novalidate>
+        <div class="field">
+          <label for="f-cname">${t('名前')}</label>
+          <input id="f-cname" name="name" class="input" value="${esc(cat.name)}" autocomplete="off" enterkeyhint="done">
+          <p class="field-error" data-error-for="name"></p>
+        </div>
+        <div class="field">
+          <label>${t('色')}</label>
+          ${colorPickerHtml(cat.colorIndex ?? 0, PALETTE_SIZE)}
+        </div>
+        <p class="note">${used ? t('このカテゴリの記録が{n}件あります。', { n: used }) : t('まだ記録はありません。')}</p>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
+          <button type="button" class="btn-danger-text" data-del>${t('削除')}</button>
+        </div>
+      </form>`,
+  });
+
+  const form = sheet.el.querySelector('form');
+  bindErrorClear(form);
+  let color = cat.colorIndex ?? 0;
+  sheet.el.querySelector('.color-pick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-color]');
+    if (!b) return;
+    color = Number(b.dataset.color);
+    sheet.el.querySelectorAll('[data-color]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await updateExpenseCategory(id, { name: form.elements.namedItem('name').value, colorIndex: color });
+      sheet.close();
+      toast(t('保存しました'));
+      onSaved?.();
+    } catch (err) {
+      if (err instanceof ValidationError) showErrors(form, err.errors);
+      else throw err;
+    }
+  });
+
+  form.querySelector('[data-del]').addEventListener('click', async () => {
+    if (!window.confirm(t('「{name}」を削除しますか？', { name: cat.name }))) return;
+    try {
+      await deleteExpenseCategory(id);
+      sheet.close();
+      toast(t('削除しました'));
+      onSaved?.();
+    } catch (err) {
+      if (err instanceof ValidationError) showErrors(form, err.errors);
+      else throw err;
+    }
+  });
+}
+
+/**
+ * 年平均を出すシート。12か月分の金額を入れると平均を出す。
+ * すでに記録がある固定費なら、その記録から入れることもできる。
+ */
+async function openAverageSheet(fixedCostId, onPick) {
+  const past = fixedCostId ? await pastAmounts(fixedCostId, 12) : [];
+  const sheet = openSheet({
+    title: t('年平均を出す'),
+    body: `
+      <p class="sheet-lead">${t('電気代のように月で変わる物は、12か月分を入れて平均を出し、その額を毎月の固定費にします。')}</p>
+      ${past.length ? `<button type="button" class="btn btn-block" data-fill>${t('これまでの記録{n}件から入れる', { n: past.length })}</button>` : ''}
+      <div class="avg-grid">
+        ${Array.from({ length: 12 }, (_, i) => i)
+          .map(
+            (i) => `<div class="avg-cell">
+              <label for="f-avg-${i}">${t('{n}か月前', { n: i + 1 })}</label>
+              <input id="f-avg-${i}" class="input" data-avg="${i}" inputmode="numeric" autocomplete="off">
+            </div>`
+          )
+          .join('')}
+      </div>
+      <p class="avg-result" data-result></p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary btn-block" data-use>${t('この金額にする')}</button>
+      </div>`,
+  });
+
+  const inputs = [...sheet.el.querySelectorAll('[data-avg]')];
+  const result = sheet.el.querySelector('[data-result]');
+  const calc = () => averageAmount(inputs.map((x) => x.value));
+  const paint = () => {
+    const { average, count } = calc();
+    result.textContent = count
+      ? t('{n}か月の平均：{amount}', { n: count, amount: money(average) })
+      : t('金額を入れると平均が出ます');
+  };
+  sheet.el.addEventListener('input', paint);
+  paint();
+
+  sheet.el.querySelector('[data-fill]')?.addEventListener('click', () => {
+    past.forEach((r, i) => {
+      if (inputs[i]) inputs[i].value = String(r.amount);
+    });
+    paint();
+  });
+
+  sheet.el.querySelector('[data-use]').addEventListener('click', () => {
+    const { average, count } = calc();
+    if (!count) return;
+    onPick(average);
+    sheet.close();
+    toast(t('年平均 {amount} にしました', { amount: money(average) }));
+  });
 }

@@ -139,8 +139,15 @@ async function loadMoney(key) {
     })
     .slice(0, 3);
 
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const day = now.getDate();
+
   return {
     month,
+    daysInMonth,
+    day,
+    daysLeft: Math.max(0, daysInMonth - day + 1), // 今日を含めてあと何日
     income,
     expense,
     savings: income - expense,
@@ -178,20 +185,47 @@ function timeText(iso) {
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 使えるお金の帯（収入のうち、使った分と貯金目標がどれだけか） */
-function addBar(stack, data, width) {
-  const total = Math.max(data.income, data.expense + data.goal, 1);
+const WARN = new Color('#d99a1e');
+
+/**
+ * 今月どれだけ使っていいか。
+ * 貯金目標があれば「収入 − 支出 − 貯金目標」、無ければ予算の残り。どちらも無ければ null
+ */
+function spendableOf(data) {
+  if (data.free !== null && data.hasIncome) return { value: data.free, label: '使っていい' };
+  if (data.budgetLeft !== null) return { value: data.budgetLeft, label: '予算の残り' };
+  return { value: null, label: !data.hasIncome ? '収入が未記録' : '貯金目標が未設定' };
+}
+
+/**
+ * 使った割合の帯。
+ * 濃いバー＝使った割合、細い縦線＝今日の位置（今月のどこまで来たか）。
+ * バーが縦線より先なら使いすぎ、手前なら余裕がある、と一目で分かる。
+ */
+function addPaceBar(stack, data, width, height) {
+  const sp = spendableOf(data);
+  const total = sp.value === null ? Math.max(data.expense, 1) : data.expense + Math.max(0, sp.value);
+  const usedW = Math.max(2, Math.min(width, (data.expense / Math.max(total, 1)) * width));
+  const elapsedW = Math.max(0, Math.min(width, (data.day / data.daysInMonth) * width));
+  const over = usedW > elapsedW + width * 0.02;
+
   const bar = stack.addStack();
-  bar.size = new Size(width, 7);
-  bar.cornerRadius = 3.5;
+  bar.size = new Size(width, height);
+  bar.cornerRadius = height / 2;
   bar.backgroundColor = Color.dynamic(new Color('#e4f1e8'), new Color('#23382b'));
+
   const used = bar.addStack();
-  used.size = new Size(Math.max(0, Math.min(width, (data.expense / total) * width)), 7);
-  used.backgroundColor = ACCENT;
-  const goal = bar.addStack();
-  goal.size = new Size(Math.max(0, Math.min(width, (data.goal / total) * width)), 7);
-  goal.backgroundColor = new Color('#d99a1e');
+  used.size = new Size(usedW, height);
+  used.backgroundColor = over ? WARN : ACCENT;
+
+  // 今日の位置の印
+  const before = elapsedW - usedW - 2;
+  if (before > 0) bar.addSpacer(before);
+  const tick = bar.addStack();
+  tick.size = new Size(2, height);
+  tick.backgroundColor = Color.dynamic(new Color('#1f201d'), new Color('#ecebe6'));
   bar.addSpacer();
+  return { over };
 }
 
 /** 「支出」「貯金」などの1項目 */
@@ -208,13 +242,6 @@ function addStat(stack, label, value, size) {
   v.minimumScaleFactor = 0.6;
 }
 
-/** 使えるお金（貯金目標が未設定・収入が未記録の時は、その案内） */
-function freeText(data) {
-  if (!data.hasIncome) return { label: '使えるお金', value: '収入が未記録', dim: true };
-  if (data.free === null) return { label: '使えるお金', value: '貯金目標が未設定', dim: true };
-  return { label: '使えるお金', value: yen(data.free), dim: false };
-}
-
 function buildWidget(data, family, note) {
   const w = new ListWidget();
   w.url = APP_URL;
@@ -227,80 +254,112 @@ function buildWidget(data, family, note) {
     t.textColor = SUB;
     return w;
   }
-  const free = freeText(data);
+  const lock = spendableOf(data);
 
-  // ロック画面（丸）：使えるお金
+  // ロック画面（丸）：使っていい額とあと何日
   if (family === 'accessoryCircular') {
     w.addAccessoryWidgetBackground = true;
-    const t = w.addText(data.free === null ? '—' : yen(data.free).replace('円', ''));
+    const t = w.addText(lock.value === null ? '—' : yen(lock.value).replace('円', ''));
     t.font = Font.boldSystemFont(15);
     t.centerAlignText();
     t.minimumScaleFactor = 0.5;
-    const s = w.addText('使える');
+    const s = w.addText(`あと${data.daysLeft}日`);
     s.font = Font.systemFont(9);
     s.centerAlignText();
     return w;
   }
-  // ロック画面（横長）：支出と使えるお金
+  // ロック画面（横長）：使っていい額・あと何日・1日あたり
   if (family === 'accessoryRectangular') {
-    const h = w.addText(`今月の支出 ${yen(data.expense)}`);
+    const h = w.addText(lock.value === null ? lock.label : `${lock.label} ${yen(lock.value)}`);
     h.font = Font.boldSystemFont(13);
-    const s = w.addText(`${free.label} ${free.value}`);
+    h.lineLimit = 1;
+    const per = lock.value === null ? null : Math.max(0, Math.round(lock.value / Math.max(1, data.daysLeft)));
+    const s = w.addText(per === null ? `支出 ${yen(data.expense)}` : `あと${data.daysLeft}日・1日 ${yen(per)}`);
     s.font = Font.systemFont(12);
     s.lineLimit = 1;
     return w;
   }
   // ロック画面（1行）
   if (family === 'accessoryInline') {
-    w.addText(`支出 ${yen(data.expense)}・${free.value}`);
+    w.addText(lock.value === null ? `支出 ${yen(data.expense)}` : `${lock.label} ${yen(lock.value)}・あと${data.daysLeft}日`);
     return w;
   }
 
   // ホーム画面
   w.backgroundColor = BG;
   w.setPadding(12, 14, 10, 14);
+  const sp = spendableOf(data);
+  const perDay = sp.value === null ? null : Math.max(0, Math.round(sp.value / Math.max(1, data.daysLeft)));
+
   const head = w.addStack();
   head.centerAlignContent();
   const title = head.addText('今月のお金');
-  title.font = Font.boldSystemFont(family === 'small' ? 12 : 14);
+  title.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
   title.textColor = ACCENT;
   head.addSpacer();
+  const left = head.addText(`あと${data.daysLeft}日`);
+  left.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
+  left.textColor = SUB;
 
-  if (family === 'small') {
-    w.addSpacer(4);
-    addStat(w, '支出', yen(data.expense), 17);
-    w.addSpacer(6);
-    const f = w.addText(`${free.label} ${free.value}`);
-    f.font = Font.systemFont(11);
-    f.textColor = free.dim ? SUB : TEXT;
-    f.lineLimit = 1;
-    f.minimumScaleFactor = 0.6;
-  } else {
-    w.addSpacer(6);
+  w.addSpacer(family === 'small' ? 6 : 8);
+
+  // いちばん大きく出すのは「使っていい額」
+  const big = w.addText(sp.value === null ? sp.label : yen(sp.value));
+  big.font = Font.boldSystemFont(family === 'small' ? 22 : 26);
+  big.textColor = sp.value !== null && sp.value < 0 ? new Color('#b4382c') : TEXT;
+  big.lineLimit = 1;
+  big.minimumScaleFactor = 0.5;
+  const cap = w.addText(sp.value === null ? 'アプリで設定するとここに出ます' : sp.label);
+  cap.font = Font.systemFont(family === 'small' ? 10 : 11);
+  cap.textColor = SUB;
+
+  w.addSpacer(family === 'small' ? 7 : 9);
+  const { over } = addPaceBar(w, data, family === 'small' ? 128 : 300, 8);
+  w.addSpacer(5);
+
+  const line = w.addStack();
+  const spent = line.addText(`使った ${yen(data.expense)}`);
+  spent.font = Font.systemFont(family === 'small' ? 10 : 12);
+  spent.textColor = TEXT;
+  spent.lineLimit = 1;
+  spent.minimumScaleFactor = 0.6;
+  if (family !== 'small' && perDay !== null) {
+    line.addSpacer();
+    const pd = line.addText(`1日あたり ${yen(perDay)}`);
+    pd.font = Font.boldSystemFont(12);
+    pd.textColor = over ? WARN : ACCENT;
+    pd.lineLimit = 1;
+  }
+  if (family === 'small' && perDay !== null) {
+    const pd = w.addText(`1日 ${yen(perDay)}`);
+    pd.font = Font.boldSystemFont(11);
+    pd.textColor = over ? WARN : ACCENT;
+    pd.lineLimit = 1;
+  }
+
+  if (family === 'large') {
+    w.addSpacer(10);
     const stats = w.addStack();
-    addStat(stats, '支出', yen(data.expense), 15);
+    addStat(stats, '収入', yen(data.income), 14);
     stats.addSpacer();
-    addStat(stats, '貯金', yen(data.savings), 15);
+    addStat(stats, '支出', yen(data.expense), 14);
     stats.addSpacer();
-    addStat(stats, free.label, free.value, 15);
-    w.addSpacer(8);
-    addBar(w, data, family === 'large' ? 300 : 300);
-
-    if (family === 'large' && data.goals.length) {
+    addStat(stats, '貯金', yen(data.savings), 14);
+    if (data.goals.length) {
       w.addSpacer(10);
       const h = w.addText('目標');
       h.font = Font.boldSystemFont(12);
       h.textColor = ACCENT;
       w.addSpacer(3);
       for (const g of data.goals) {
-        const line = w.addStack();
-        line.centerAlignContent();
-        const n = line.addText(g.title);
+        const row = w.addStack();
+        row.centerAlignContent();
+        const n = row.addText(g.title);
         n.font = Font.systemFont(13);
         n.textColor = TEXT;
         n.lineLimit = 1;
-        line.addSpacer();
-        const r = line.addText(g.reachable ? '届きそう' : `あと${yen(g.short)}`);
+        row.addSpacer();
+        const r = row.addText(g.reachable ? '届きそう' : `あと${yen(g.short)}`);
         r.font = Font.boldSystemFont(12);
         r.textColor = g.reachable ? ACCENT : SUB;
         r.lineLimit = 1;
@@ -314,7 +373,7 @@ function buildWidget(data, family, note) {
   if (data.pending) {
     const p = foot.addText('アプリを開いて更新');
     p.font = Font.systemFont(10);
-    p.textColor = new Color('#d99a1e');
+    p.textColor = WARN;
   }
   foot.addSpacer();
   const at = foot.addText(note ? `${note}・${timeText(data.at)}` : timeText(data.at));

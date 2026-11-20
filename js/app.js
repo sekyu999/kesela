@@ -23,7 +23,7 @@ import { esc } from './lib/util.js';
  */
 const ROUTES = { budget: kakeibo, list: shopping, stock: stockTab, meals, goals, settings };
 /** 以前の URL でも開けるようにする（#/health → 食事、#/prices → 在庫タブの価格） */
-const ALIASES = { health: 'meals', prices: 'stock' };
+const ALIASES = { health: 'meals', prices: 'stock', stores: 'stock' };
 const DEFAULT_ROUTE = 'budget';
 
 const screenEl = document.getElementById('screen');
@@ -36,7 +36,7 @@ let cleanup = null;
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\/?/, '').split('/')[0];
-  if (raw === 'prices') stockTab.setSegment('prices');
+  if (raw === 'prices' || raw === 'stores') stockTab.setSegment(raw);
   const key = ALIASES[raw] ?? raw;
   return key in ROUTES ? key : DEFAULT_ROUTE;
 }

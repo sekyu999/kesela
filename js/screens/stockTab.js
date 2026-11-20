@@ -9,6 +9,7 @@ export const title = '在庫';
 const SEGMENTS = [
   { key: 'stock', label: '在庫' },
   { key: 'prices', label: '価格' },
+  { key: 'stores', label: 'お店' },
 ];
 
 /** 画面を離れても覚えておく */
@@ -35,7 +36,8 @@ export function mount(el) {
     el.querySelectorAll('[data-seg]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.seg === segment)));
     const box = document.createElement('div');
     view.replaceChildren(box);
-    stop = (segment === 'prices' ? prices.mount(box) : stock.mount(box)) ?? null;
+    stop =
+      (segment === 'prices' ? prices.mountCompare(box) : segment === 'stores' ? prices.mountStores(box) : stock.mount(box)) ?? null;
   }
 
   el.addEventListener('click', (e) => {

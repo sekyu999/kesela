@@ -1123,3 +1123,39 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .item-row.is-elsewhere .item-main, .item-row.is-elsewhere .item-qty { opacity: 0.45; }
 .notice-pace { margin-bottom: 4px; }
 .badge-reach { background: var(--accent-soft); color: var(--accent); }
+
+/* ===== v1.15 の調整 ===== */
+/* 家計簿：常に出ているかんたん入力 */
+.kb-quick .calc-field { margin-top: 10px; }
+.kb-quick .tx-kind { margin-bottom: 10px; }
+.quick-actions { display: flex; gap: 8px; margin-top: 14px; }
+.quick-actions .btn { min-height: 46px; }
+.quick-date { margin-top: 6px; font-size: var(--fz-sub); color: var(--text-sub); text-align: center; }
+
+/* 年平均を出す画面 */
+.avg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; margin-top: 12px; }
+.avg-cell label { display: block; font-size: var(--fz-sub); color: var(--text-sub); }
+.avg-result { margin-top: 12px; font-weight: 700; text-align: center; }
+.section-title.sub { margin-top: 10px; font-size: var(--fz-sub); color: var(--text-sub); }
+.cat-list .row-button { gap: 10px; }
+
+/* 価格：最安のお店は商品名の前。金額は単位の幅を固定して右端をそろえる */
+.best-mark { display: inline-flex; flex: none; gap: 2px; min-width: 22px; }
+.compare-price { display: flex; flex-direction: column; align-items: flex-end; }
+.cp-num { font-variant-numeric: tabular-nums; }
+.compare-main-price .cp-unit, .compare-sub .cp-unit {
+  display: inline-block; min-width: 3.6em; text-align: left; color: var(--text-sub);
+}
+@media (max-width: 360px) {
+  .compare-main-price .cp-unit, .compare-sub .cp-unit { min-width: 2.8em; }
+}
+
+/* 家計の予定・目標：≡ の位置を文字の高さに合わせる */
+.plan-row .drag-handle { align-self: center; margin-left: 2px; }
+.gb .drag-handle { margin-top: 0; align-self: flex-start; height: 1.6em; display: flex; align-items: center; }
+.gb-h1 .drag-handle, .gb-h2 .drag-handle, .gb-h3 .drag-handle { height: 1.3em; }
+
+/* 見出しブロックは上に余白（Notion と同じように段落が分かれて見えるように） */
+.gb-heading { margin-top: 18px; }
+.gb-h1 { margin-top: 24px; }
+.gb-heading:first-child { margin-top: 0; }

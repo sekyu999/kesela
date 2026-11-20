@@ -13,7 +13,7 @@ import { getMeta, META } from '../data/metaRepo.js';
 import { summarize, resolveBudget, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
 import * as budget from './budget.js';
-import { openTransactionSheet } from './kakeiboSheet.js';
+import { openTransactionSheet, quickFormHtml, bindQuickForm } from './kakeiboSheet.js';
 import { openKakeiboSettings } from './kakeiboSettings.js';
 import { todayLocal, esc } from '../lib/util.js';
 import { t, money, monthText, dateShort } from '../lib/i18n.js';
@@ -73,7 +73,7 @@ function monthNavHtml(month) {
   return `<div class="month-nav">
     <button type="button" class="icon-btn" data-move="-1" aria-label="${t('前の月')}">‹</button>
     <strong class="month-nav-label">${monthText(month, month === now ? now : null)}</strong>
-    <button type="button" class="icon-btn" data-move="1" aria-label="${t('次の月')}" ${month >= now ? 'disabled' : ''}>›</button>
+    <button type="button" class="icon-btn" data-move="1" aria-label="${t('次の月')}">›</button>
     ${month !== now ? `<button type="button" class="btn btn-small" data-move="now">${t('今月')}</button>` : ''}
   </div>`;
 }
@@ -88,17 +88,27 @@ function bindMonthNav(el, redraw) {
   });
 }
 
-/** ① 今月：収入・支出・貯金額・使えるお金・カテゴリ別・明細 */
+/** ① 今月：かんたん入力・収入・支出・貯金額・使えるお金・カテゴリ別・明細 */
 function mountMonth(el) {
   let state = null;
+  let catKey = null; // カテゴリの一覧が変わった時だけ入力欄を作り直すための印
+
+  el.innerHTML = `
+    <div class="stack">
+      <div data-nav></div>
+      <section class="card kb-quick" data-quick></section>
+      <div data-body class="stack"></div>
+    </div>`;
+  const navEl = el.querySelector('[data-nav]');
+  const quickEl = el.querySelector('[data-quick]');
+  const bodyEl = el.querySelector('[data-body]');
+  let quick = null;
+  bindMonthNav(navEl, () => render());
 
   el.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     switch (btn.dataset.action) {
-      case 'add':
-        openTransactionSheet(null, { date: viewMonth === thisMonth() ? todayLocal() : `${viewMonth}-01` });
-        break;
       case 'edit':
         openTransactionSheet(btn.dataset.id);
         break;
@@ -115,41 +125,49 @@ function mountMonth(el) {
   function render() {
     if (!state) return;
     const { rows, categories, budgets, savingsGoal } = state;
+
+    // 月の切り替え（中身だけ描き直す。処理は上で1回だけ付けてある）
+    navEl.innerHTML = monthNavHtml(viewMonth);
+
+    // かんたん入力（カテゴリの一覧が変わった時だけ作り直す。書いている途中を消さないため）
+    const nextKey = categories.map((c) => `${c.id}:${c.name}:${c.colorIndex}:${c.type}`).join('|');
+    if (nextKey !== catKey) {
+      catKey = nextKey;
+      quick?.destroy();
+      quickEl.innerHTML = quickFormHtml(categories);
+      quick = bindQuickForm(quickEl, categories);
+    }
+
     const monthBudget = resolveBudget(budgets, viewMonth);
     const s = summarize(rows, { savingsGoal, budget: monthBudget });
     const cats = byCategory(rows, categories);
     const slices = donutSlices(cats);
     const shown = showAll ? rows : rows.slice(0, 10);
 
-    el.innerHTML = `
-      <div class="stack">
-        ${monthNavHtml(viewMonth)}
-        <section class="card">
-          <ul class="kb-stats">
-            <li><span>${t('収入')}</span><strong>${money(s.income)}</strong></li>
-            <li><span>${t('支出')}</span><strong>${money(s.expense)}</strong></li>
-            <li class="${s.savings < 0 ? 'is-minus' : ''}"><span>${t('貯金額')}</span><strong>${money(s.savings)}</strong></li>
-          </ul>
-          ${freeHtml(s)}
-        </section>
-        ${budgetHtml(s)}
-        ${cats.length ? donutHtml(slices, s.expense) : ''}
-        <section>
-          <h2 class="section-title">${t('記録')}<span>${t('{n}件', { n: rows.length })}</span></h2>
-          ${
-            rows.length
-              ? `<ul class="list compact-list">${shown.map((r) => rowHtml(r, categories)).join('')}</ul>
-                 ${!showAll && rows.length > shown.length ? `<button type="button" class="btn btn-block" data-action="all">${t('すべて見る')}</button>` : ''}`
-              : `<div class="placeholder">${t('右下の「＋ 記録」から、レシートを見ながら支出を入れられます。')}</div>`
-          }
-        </section>
-        <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・貯金目標を設定')}</button>
-      </div>
-      <button type="button" class="fab" data-action="add">${t('＋ 記録')}</button>`;
-    bindMonthNav(el.querySelector('.month-nav'), render);
+    bodyEl.innerHTML = `
+      <section class="card">
+        <ul class="kb-stats">
+          <li><span>${t('収入')}</span><strong>${money(s.income)}</strong></li>
+          <li><span>${t('支出')}</span><strong>${money(s.expense)}</strong></li>
+          <li class="${s.savings < 0 ? 'is-minus' : ''}"><span>${t('貯金額')}</span><strong>${money(s.savings)}</strong></li>
+        </ul>
+        ${freeHtml(s)}
+      </section>
+      ${budgetHtml(s)}
+      ${cats.length ? donutHtml(slices, s.expense) : ''}
+      <section>
+        <h2 class="section-title">${t('記録')}<span>${t('{n}件', { n: rows.length })}</span></h2>
+        ${
+          rows.length
+            ? `<ul class="list compact-list">${shown.map((r) => rowHtml(r, categories)).join('')}</ul>
+               ${!showAll && rows.length > shown.length ? `<button type="button" class="btn btn-block" data-action="all">${t('すべて見る')}</button>` : ''}`
+            : `<div class="placeholder">${t('上の欄に金額を入れて「記録する」を押すと、ここに並びます。')}</div>`
+        }
+      </section>
+      <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・カテゴリ・貯金目標を設定')}</button>`;
   }
 
-  return watch(
+  const stop = watch(
     async () => ({
       rows: await listByMonth(viewMonth),
       categories: await listExpenseCategories(),
@@ -161,6 +179,10 @@ function mountMonth(el) {
       render();
     }
   );
+  return () => {
+    quick?.destroy();
+    stop();
+  };
 }
 
 /** 「今月自由に使えるお金」。貯金目標・収入が未設定の時は案内を出す */

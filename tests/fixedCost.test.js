@@ -71,3 +71,10 @@ test('固定費の入力：名前・金額・カテゴリは必須、終わり�
   assert.equal(validateFixedCostInput({ ...base, ended: true, endMonth: '2025-12' }, '2026-11').errors.endMonth, '始まりの月より後にしてください');
   assert.equal(validateFixedCostInput({ ...base, ended: true, endMonth: '2026-06' }, '2026-11').value.endMonth, '2026-06');
 });
+
+test('年平均：空欄は数に入れず、四捨五入した整数の円にする', async () => {
+  const { averageAmount } = await import('../js/domain/fixedCost.js');
+  assert.deepEqual(averageAmount(['8,000', '12000', '', '10000']), { average: 10000, count: 3 });
+  assert.deepEqual(averageAmount(['1000', '1001']), { average: 1001, count: 2 });
+  assert.deepEqual(averageAmount(['', '0', 'abc']), { average: 0, count: 0 });
+});

@@ -83,6 +83,20 @@ export function rowsToCreate(fixedCosts, existing, month, createdAt) {
 }
 
 /**
+ * 入れた金額の平均（円の整数）。空欄は数に入れない。
+ * 電気代のように月で変わる物を「年平均」で登録するために使う。
+ * @param {Array<string|number>} amounts
+ * @returns {{ average:number, count:number }}
+ */
+export function averageAmount(amounts) {
+  const nums = amounts
+    .map((v) => Number(String(v ?? '').replace(/[,円\s]/g, ''))) // i18n-ignore
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!nums.length) return { average: 0, count: 0 };
+  return { average: Math.round(nums.reduce((a, b) => a + b, 0) / nums.length), count: nums.length };
+}
+
+/**
  * 固定費の入力の検証と整形
  * @returns {{ ok:true, value:object } | { ok:false, errors:Record<string,string> }}
  */

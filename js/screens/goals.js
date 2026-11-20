@@ -167,8 +167,13 @@ export function mount(el) {
 
     const sc = shortcutFor(b);
     if (sc) {
+      // 記号（「# 」など）が消える分だけカーソルを戻す。
+      // ここを 0 にすると、記号と本文をまとめて入れた時（貼り付け・変換確定）に
+      // カーソルが行頭に残り、次に打った文字が前に入ってしまう
+      const before = caretOffset(host);
+      const removed = b.text.length - sc.text.length;
       Object.assign(b, sc);
-      render([i, 0]);
+      render([i, Math.max(0, before - removed)]);
     } else {
       host.closest('.gb').classList.toggle('is-blank', !b.text);
     }

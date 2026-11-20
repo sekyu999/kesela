@@ -30,48 +30,37 @@ import { t, money } from '../lib/i18n.js';
 
 export const title = '店舗・価格';
 
-/** 表示中のタブ（画面を離れても覚えておく） */
-let tab = 'compare';
+/** 価格比較の画面（在庫タブのセグメントから呼ばれる） */
+export function mountCompare(el) {
+  el.innerHTML = `<div class="stack" id="tab-body"></div>
+    <button type="button" class="fab" data-action="fab">${t('＋ 価格を記録')}</button>`;
+  bindActions(el);
+  return renderCompare(el.querySelector('#tab-body'));
+}
 
-export function mount(el) {
-  el.innerHTML = `
-    <div class="stack">
-      <div class="segmented" role="tablist">
-        <button type="button" role="tab" data-tab="compare">${t('価格比較')}</button>
-        <button type="button" role="tab" data-tab="stores">${t('店舗')}</button>
-      </div>
-      <div id="tab-body" class="stack"></div>
-    </div>
-    <button type="button" class="fab" data-action="fab"></button>
-  `;
-  const body = el.querySelector('#tab-body');
-  const fab = el.querySelector('.fab');
-  let stop = null;
+/** お店の画面（在庫タブのセグメントから呼ばれる） */
+export function mountStores(el) {
+  el.innerHTML = `<div class="stack" id="tab-body"></div>
+    <button type="button" class="fab" data-action="fab-store">${t('＋ 店舗')}</button>`;
+  bindActions(el);
+  return renderStores(el.querySelector('#tab-body'));
+}
 
-  function showTab() {
-    el.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-    fab.textContent = tab === 'compare' ? t('＋ 価格を記録') : t('＋ 店舗');
-    stop?.();
-    stop = tab === 'compare' ? renderCompare(body) : renderStores(body);
-  }
-
+/** 両方の画面で使うタップの処理 */
+function bindActions(el) {
   el.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-tab], [data-action]');
+    const target = e.target.closest('[data-action]');
     if (!target) return;
-    if (target.dataset.tab) {
-      tab = target.dataset.tab;
-      showTab();
-      return;
-    }
     const id = target.dataset.id;
     switch (target.dataset.action) {
       case 'fab':
-        if (tab === 'compare') openPriceSheet();
-        else openAddStoreSheet();
+        openPriceSheet();
+        break;
+      case 'fab-store':
+        openAddStoreSheet();
         break;
       case 'go-stores':
-        tab = 'stores';
-        showTab();
+        location.hash = '#/stores';
         break;
       case 'detail':
         openProductPriceSheet(id);
@@ -84,9 +73,6 @@ export function mount(el) {
         break;
     }
   });
-
-  showTab();
-  return () => stop?.();
 }
 
 // ===================== 価格比較 =====================
@@ -99,7 +85,7 @@ function renderCompare(body) {
         body.innerHTML = `
           <div class="placeholder">
             <p>${t('まず、よく行くお店を登録してください。')}</p>
-            <p style="margin-top:12px"><button type="button" class="btn" data-action="go-stores">${t('店舗を登録する')}</button></p>
+            <p style="margin-top:12px">${t('上の「お店」から登録してください。')}</p>
           </div>`;
         return;
       }
@@ -122,17 +108,20 @@ function renderCompare(body) {
       const rowHtml = ({ p, cmp }) => {
         if (cmp.mode === 'none') {
           return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
+            <span class="best-mark" aria-hidden="true"></span>
             <span class="grow">${esc(p.name)}</span><span class="note">${t('記録なし')} ›</span></button></li>`;
         }
         const best = cmp.rows.filter((r) => r.cheapest);
         const top = best[0];
-        // そのままの値段（1パックの値段）がメイン。100gあたりなどは小さく「/100g」で添える
+        // 最安のお店は商品名の前に色＋頭文字で出す（行を増やさない）
+        const marks = best
+          .slice(0, 2)
+          .map((b) => storeBadgeHtml(storeById.get(b.storeId) ?? { name: t('削除された店舗'), colorIndex: 0 }))
+          .join('');
         return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
+          <span class="best-mark" title="${esc(t('最安のお店'))}">${marks}</span>
           <span class="grow compare-main">
             <span class="item-name item-name-sm">${esc(p.name)}</span>
-            <span class="price-line">${t('最安')} ${best
-              .map((b) => storeBadgeHtml(storeById.get(b.storeId) ?? { name: t('削除された店舗'), colorIndex: 0 }, { withName: true }))
-              .join('')}</span>
           </span>
           ${priceBlock(top, p)}
           <span class="note">›</span></button></li>`;
@@ -247,8 +236,14 @@ function contentLabel(r) {
  */
 function priceBlock(row, product) {
   const per = `/${esc(t(product.inventoryUnit))}`;
-  const sub = row.unit ? `<span class="compare-sub">${money(row.unit.value)}${esc(slashUnit(row.unit))}</span>` : '';
-  return `<span class="compare-price"><span class="compare-main-price">${money(Math.round(row.perItem))}<small>${per}</small></span>${sub}</span>`;
+  const sub = row.unit
+    ? `<span class="compare-sub"><span class="cp-num">${money(row.unit.value)}</span><span class="cp-unit">${esc(slashUnit(row.unit))}</span></span>`
+    : '';
+  // 「780円」と「/パック」を分け、単位の幅を固定する。
+  // こうしないと「個」と「パック」で数字の右端がずれる
+  return `<span class="compare-price">
+    <span class="compare-main-price"><span class="cp-num">${money(Math.round(row.perItem))}</span><small class="cp-unit">${per}</small></span>
+    ${sub}</span>`;
 }
 
 // ===================== 店舗 =====================

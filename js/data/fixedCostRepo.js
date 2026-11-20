@@ -27,6 +27,18 @@ export async function saveFixedCost(id, raw) {
   return row;
 }
 
+/**
+ * その固定費から作られた、直近 months か月の金額（新しい順）。年平均を出すのに使う
+ * @returns {Promise<Array<{month:string, amount:number}>>}
+ */
+export async function pastAmounts(fixedCostId, months = 12) {
+  const rows = await db.transactions.where('fixedCostId').equals(fixedCostId).toArray();
+  return rows
+    .map((r) => ({ month: String(r.date).slice(0, 7), amount: Number(r.amount) || 0 }))
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .slice(0, months);
+}
+
 /** その固定費から作られた記録の件数 */
 export async function countGeneratedRows(fixedCostId) {
   return db.transactions.where('fixedCostId').equals(fixedCostId).count();
