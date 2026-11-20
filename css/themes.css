@@ -1,8 +1,8 @@
 /* テーマ（設定で選ぶ）。html の data-theme 属性で切り替える。未設定＝端末の明暗に合わせる（ブランド色） */
 :root[data-theme="kesela"] { /* KESELA（ブランド。常に明るい配色） */
   color-scheme: light;
-  --bg: #fbf7ef; --surface: #ffffff; --text: #0b2446; --text-sub: #5f6e85; --border: #e7dfd1;
-  --accent: #0b2446; --accent-soft: #e8edf4; --on-accent: #fbf7ef; --danger: #b4382c;
+  --bg: #fbf7ef; --surface: #ffffff; --text: #214b86; --text-sub: #5f6e85; --border: #e7dfd1;
+  --accent: #214b86; --accent-soft: #e8edf4; --on-accent: #fbf7ef; --danger: #b4382c;
   --warn-soft: #fdf0d5; --warn-text: #8a5a00; --warn-bar: #f6b335;
 }
 :root[data-theme="wakaba"] { /* 若葉 */

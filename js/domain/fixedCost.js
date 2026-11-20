@@ -22,6 +22,23 @@ export const CYCLES = [
   { months: 12, label: '1年ごと' },
 ];
 
+/**
+ * 隔月などの入れ方。
+ *   true （既定）… **毎月ならして**入れる。2か月ごと 10,000円なら毎月 5,000円。
+ *                   毎月の「使っていいお金」がぶれないので、年平均で登録している物に向く
+ *   false        … 請求が来た月にまとめて入れる。実際の引き落としと同じ形になる
+ */
+export function spreadOf(fc) {
+  return fc?.spread !== false;
+}
+
+/** その月の記録に入れる金額（ならす時は間隔で割る） */
+export function monthlyAmount(fc) {
+  const every = cycleOf(fc);
+  const amount = Number(fc?.amount) || 0;
+  return every > 1 && spreadOf(fc) ? Math.round(amount / every) : amount;
+}
+
 /** 間隔の数（指定が無い・おかしい時は毎月） */
 export function cycleOf(fc) {
   const n = Math.floor(Number(fc?.everyMonths));
@@ -34,6 +51,12 @@ export function cycleLabel(fc) {
   return n === 1 ? '' : (CYCLES.find((c) => c.months === n)?.label ?? '');
 }
 
+/** 入れ方の言い方（毎月の時は空） */
+export function spreadLabel(fc) {
+  if (cycleOf(fc) === 1) return '';
+  return spreadOf(fc) ? '毎月ならす' : '請求の月にまとめて';
+}
+
 /**
  * その月に有効な固定費か。
  * 隔月などは「いつから」の月から数えて、間隔の倍数の月だけ有効にする
@@ -42,7 +65,8 @@ export function isActiveIn(fc, month) {
   if (fc.startMonth && month < fc.startMonth) return false;
   if (fc.endMonth && month > fc.endMonth) return false;
   const every = cycleOf(fc);
-  if (every > 1 && fc.startMonth) {
+  // ならして入れる時は毎月が対象（金額を間隔で割って入れる）
+  if (every > 1 && !spreadOf(fc) && fc.startMonth) {
     const diff = monthsBetween(fc.startMonth, month);
     if (diff < 0 || diff % every !== 0) return false;
   }
@@ -103,7 +127,7 @@ export function rowsToCreate(fixedCosts, existing, month, createdAt) {
     .map((fc) => ({
       id: fixedRowId(fc.id, month),
       type: fc.type === 'income' ? 'income' : 'expense',
-      amount: Number(fc.amount) || 0,
+      amount: monthlyAmount(fc),
       date: dateInMonth(month, fc.dayOfMonth),
       categoryId: null, // 固定費はカテゴリを持たない（固定費の名前と色でまとめて見せる）
       memo: '',
@@ -169,8 +193,22 @@ export function validateFixedCostInput(raw, thisMonthValue) {
   const colorIndex = Number.isFinite(Number(raw.colorIndex)) ? Number(raw.colorIndex) : 0;
   const samples = raw.samples && typeof raw.samples === 'object' ? raw.samples : {};
   const everyMonths = cycleOf({ everyMonths: raw.everyMonths });
+  const spread = raw.spread === undefined ? true : !!raw.spread && raw.spread !== 'false';
   return {
     ok: true,
-    value: { type, name, amount, categoryId: null, colorIndex, samples, everyMonths, dayOfMonth, startMonth, endMonth, memo },
+    value: {
+      type,
+      name,
+      amount,
+      categoryId: null,
+      colorIndex,
+      samples,
+      everyMonths,
+      spread,
+      dayOfMonth,
+      startMonth,
+      endMonth,
+      memo,
+    },
   };
 }

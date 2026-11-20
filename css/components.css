@@ -1191,3 +1191,4 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 }
 .icon-pick img { border-radius: 13px; display: block; }
 .icon-pick button[aria-checked="true"] { border-color: var(--accent); }
+.kb-per { margin-left: 1px; font-size: var(--fz-sub); font-weight: 400; color: var(--text-sub); }

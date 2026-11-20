@@ -15,7 +15,7 @@ import { listBudgets, setBudget } from '../data/budgetRepo.js';
 import { listFixedCosts, getFixedCost, saveFixedCost, deleteFixedCost, countGeneratedRows, applyToMonth } from '../data/fixedCostRepo.js';
 import { getMeta, setMeta, META } from '../data/metaRepo.js';
 import { rawBudget, validateBudgetAmount, PALETTE_SIZE } from '../domain/kakeibo.js';
-import { averageAmount, SAMPLE_MONTHS, CYCLES, cycleOf, cycleLabel } from '../domain/fixedCost.js';
+import { averageAmount, SAMPLE_MONTHS, CYCLES, cycleOf, cycleLabel, spreadOf, spreadLabel, monthlyAmount } from '../domain/fixedCost.js';
 import { thisMonth } from '../domain/plans.js';
 import { ValidationError } from '../data/productRepo.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
@@ -115,10 +115,16 @@ export async function openKakeiboSettings(month = thisMonth()) {
                     <button type="button" class="row-button" data-fixed="${f.id}">
                       <span class="kb-dot" style="background:var(--swatch-${(f.colorIndex ?? 0) + 1})"></span>
                       <span class="grow kb-name">${esc(f.name)}${f.endMonth ? `<span class="badge badge-muted">${t('終了')}</span>` : ''}
-                        <span class="kb-memo">${[cycleLabel(f) && t(cycleLabel(f)), f.dayOfMonth ? t('{d}日', { d: f.dayOfMonth }) : t('月初')]
+                        <span class="kb-memo">${[
+                          cycleLabel(f) && t(cycleLabel(f)),
+                          spreadLabel(f) && t(spreadLabel(f)),
+                          f.dayOfMonth ? t('{d}日', { d: f.dayOfMonth }) : t('月初'),
+                        ]
                           .filter(Boolean)
                           .join(t('・'))}</span></span>
-                      <span class="kb-amount">${f.type === 'income' ? '+' : ''}${money(f.amount)}</span>
+                      <span class="kb-amount">${f.type === 'income' ? '+' : ''}${money(monthlyAmount(f))}${
+                        monthlyAmount(f) !== f.amount ? `<small class="kb-per">${t('/月')}</small>` : ''
+                      }</span>
                     </button>
                   </li>`
                 )
@@ -229,6 +235,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
     colorIndex: 0,
     samples: {},
     everyMonths: 1,
+    spread: true,
     dayOfMonth: '',
     startMonth: thisMonth(),
     endMonth: null,
@@ -267,7 +274,15 @@ export async function openFixedCostSheet(id, month, onSaved) {
               (c) => `<option value="${c.months}" ${cycleOf(v) === c.months ? 'selected' : ''}>${t(c.label)}</option>`
             ).join('')}
           </select>
-          <p class="sheet-lead">${t('水道代のように隔月の物は、ここで間隔を選びます。「いつから」の月が基準になります。')}</p>
+          <p class="sheet-lead">${t('水道代のように隔月の物は、ここで間隔を選びます。')}</p>
+        </div>
+        <div class="field" data-spread ${cycleOf(v) === 1 ? 'hidden' : ''}>
+          <label id="spread-label">${t('入れ方')}</label>
+          <div class="segmented" role="radiogroup" aria-labelledby="spread-label">
+            <button type="button" role="radio" data-spread-btn="1" aria-checked="${String(spreadOf(v))}">${t('毎月ならす')}</button>
+            <button type="button" role="radio" data-spread-btn="0" aria-checked="${String(!spreadOf(v))}">${t('請求の月にまとめて')}</button>
+          </div>
+          <p class="sheet-lead" data-spread-note></p>
         </div>
         <div class="field">
           <label for="f-day">${t('引き落とし日')} <span class="optional">${t('任意')}</span></label>
@@ -318,6 +333,31 @@ export async function openFixedCostSheet(id, month, onSaved) {
   const pad = bindCalcField(sheet.el, 'amount');
   const typeInput = form.elements.namedItem('type');
   const endBox = form.querySelector('[data-end]');
+  const spreadBox = form.querySelector('[data-spread]');
+  const spreadNote = form.querySelector('[data-spread-note]');
+  let spread = spreadOf(v);
+
+  /** 間隔と入れ方に合わせて、説明と出し入れを直す */
+  function paintSpread() {
+    const every = cycleOf({ everyMonths: form.elements.namedItem('everyMonths').value });
+    spreadBox.hidden = every === 1;
+    form.querySelectorAll('[data-spread-btn]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.spreadBtn === '1') === spread)));
+    const amount = Number(pad.value) || 0;
+    spreadNote.textContent = spread
+      ? t('{total}を{n}か月に分けて、毎月{each}として入れます', {
+          total: money(amount),
+          n: every,
+          each: money(Math.round(amount / Math.max(1, every))),
+        })
+      : t('請求が来る月にだけ{total}を入れます。「いつから」の月が基準です', { total: money(amount) });
+  }
+  form.elements.namedItem('everyMonths').addEventListener('change', paintSpread);
+  form.querySelectorAll('[data-spread-btn]').forEach((b) =>
+    b.addEventListener('click', () => {
+      spread = b.dataset.spreadBtn === '1';
+      paintSpread();
+    })
+  );
 
   form.querySelectorAll('[data-kind]').forEach((b) =>
     b.addEventListener('click', () => {
@@ -337,8 +377,10 @@ export async function openFixedCostSheet(id, month, onSaved) {
     openAverageSheet(samples, (next, average) => {
       samples = next;
       pad.reset(String(average));
+      paintSpread();
     });
   });
+  paintSpread();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -351,6 +393,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
         colorIndex: color,
         samples,
         everyMonths: g('everyMonths'),
+        spread,
         dayOfMonth: g('dayOfMonth'),
         startMonth: `${g('startYear')}-${g('startMon')}`,
         ended: form.elements.namedItem('ended').checked,

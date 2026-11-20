@@ -106,13 +106,15 @@ const RULES = {
               ? 'colorIndex'
               : !isNumOrNone(r.everyMonths)
                 ? 'everyMonths'
-                : !(r.samples === undefined || (r.samples && typeof r.samples === 'object'))
-                  ? 'samples'
-                  : !isMonth(r.startMonth)
-                    ? 'startMonth'
-                    : !isMonth(r.endMonth)
-                      ? 'endMonth'
-                      : null,
+                : !isBoolOrNone(r.spread)
+                  ? 'spread'
+                  : !(r.samples === undefined || (r.samples && typeof r.samples === 'object'))
+                    ? 'samples'
+                    : !isMonth(r.startMonth)
+                      ? 'startMonth'
+                      : !isMonth(r.endMonth)
+                        ? 'endMonth'
+                        : null,
   budgets: (r) => (!isAmount(r.amount) ? 'amount' : !isMonth(r.month) ? 'month' : !isStrOrNull(r.categoryId) ? 'categoryId' : null),
   priceRecords: (r) =>
     !isStr(r.productId)

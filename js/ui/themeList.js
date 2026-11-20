@@ -4,7 +4,7 @@ export const THEMES = [
     "key": "kesela",
     "label": "KESELA",
     "bg": "#fbf7ef",
-    "accent": "#0b2446",
+    "accent": "#214b86",
     "surface": "#ffffff"
   },
   {

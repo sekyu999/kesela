@@ -1,12 +1,12 @@
 /* 色・余白などの基本設定。色を変えたいときはここの変数だけ変える
-   既定の配色は KESELA のブランド色（紺 #0B2446 ／ 黄 #F6B335 ／ クリーム #FBF7EF） */
+   既定の配色は KESELA のブランド色（紺 #214B86 ／ 黄 #F6B335 ／ クリーム #FBF7EF） */
 :root {
   --bg: #fbf7ef;
   --surface: #ffffff;
-  --text: #0b2446;
+  --text: #214b86;
   --text-sub: #5f6e85;
   --border: #e7dfd1;
-  --accent: #0b2446;        /* 主要ボタン・選択中タブ（ブランドの紺） */
+  --accent: #214b86;        /* 主要ボタン・選択中タブ（ブランドの紺） */
   --accent-soft: #e8edf4;
   --danger: #b4382c;
   --warn-soft: #fdf0d5;
@@ -59,7 +59,7 @@
     --warn-soft: #3d3420;
     --warn-text: #f0c46b;
     --warn-bar: #e09b2e;
-    --on-accent: #0b2446;
+    --on-accent: #214b86;
   }
 }
 

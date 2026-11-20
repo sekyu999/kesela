@@ -81,13 +81,14 @@ test('年平均：空欄は数に入れず、四捨五入した整数の円に�
 
 test('隔月：いつからの月を基準に、間隔の月だけ有効', async () => {
   const { isActiveIn, cycleOf, cycleLabel } = await import('../js/domain/fixedCost.js');
-  const water = { ...rent, name: '水道', startMonth: '2026-11', everyMonths: 2 };
+  // 「請求の月にまとめて」の時の判定（ならす時は毎月が対象）
+  const water = { ...rent, name: '水道', startMonth: '2026-11', everyMonths: 2, spread: false };
   assert.deepEqual(
     ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02'].map((m) => isActiveIn(water, m)),
     [false, true, false, true, false]
   );
   // 3か月ごと
-  const g = { ...rent, startMonth: '2026-01', everyMonths: 3 };
+  const g = { ...rent, startMonth: '2026-01', everyMonths: 3, spread: false };
   assert.deepEqual(['2026-01', '2026-02', '2026-04', '2026-07'].map((m) => isActiveIn(g, m)), [true, false, true, true]);
   // 指定なし・おかしい値は毎月あつかい
   assert.equal(cycleOf({}), 1);
@@ -98,8 +99,32 @@ test('隔月：いつからの月を基準に、間隔の月だけ有効', async
 
 test('隔月の固定費は、来ない月には記録を作らない', async () => {
   const { rowsToCreate } = await import('../js/domain/fixedCost.js');
-  const water = { ...rent, id: 'w', startMonth: '2026-11', everyMonths: 2, amount: 5200 };
+  const water = { ...rent, id: 'w', startMonth: '2026-11', everyMonths: 2, amount: 5200, spread: false };
   assert.equal(rowsToCreate([water], [], '2026-11', 'T').length, 1);
   assert.equal(rowsToCreate([water], [], '2026-12', 'T').length, 0);
   assert.equal(rowsToCreate([water], [], '2027-01', 'T').length, 1);
+});
+
+test('ならして入れる：隔月でも毎月、間隔で割った額が入る', async () => {
+  const { isActiveIn, rowsToCreate, monthlyAmount, spreadOf, spreadLabel } = await import('../js/domain/fixedCost.js');
+  const water = { ...rent, id: 'w', name: '水道', amount: 10000, startMonth: '2026-11', everyMonths: 2 };
+  assert.equal(spreadOf(water), true); // 指定が無ければ「ならす」
+  assert.equal(monthlyAmount(water), 5000);
+  for (const m of ['2026-11', '2026-12', '2027-01']) {
+    assert.equal(isActiveIn(water, m), true);
+    assert.equal(rowsToCreate([water], [], m, 'T')[0].amount, 5000);
+  }
+  // まとめて入れる時は、来る月だけ全額
+  const lump = { ...water, spread: false };
+  assert.equal(monthlyAmount(lump), 10000);
+  assert.deepEqual(['2026-11', '2026-12'].map((m) => isActiveIn(lump, m)), [true, false]);
+  // 毎月の物は割らない
+  assert.equal(monthlyAmount(rent), rent.amount);
+  assert.equal(spreadLabel(rent), '');
+});
+
+test('割り切れない時は四捨五入した整数の円にする', async () => {
+  const { monthlyAmount } = await import('../js/domain/fixedCost.js');
+  assert.equal(monthlyAmount({ amount: 10001, everyMonths: 2 }), 5001);
+  assert.equal(monthlyAmount({ amount: 10000, everyMonths: 3 }), 3333);
 });

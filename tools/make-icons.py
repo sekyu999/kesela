@@ -16,7 +16,7 @@ SS = 4           # 何倍で描くか（なめらかにするため）
 SIZES = {'icon-512.png': 512, 'icon-192.png': 192, 'apple-touch-icon.png': 180,
          'favicon-32.png': 32, 'favicon-16.png': 16}
 
-NAVY = '#0B2446'
+NAVY = '#214B86'
 AMBER = '#F6B335'
 CREAM = '#FBF7EF'
 
