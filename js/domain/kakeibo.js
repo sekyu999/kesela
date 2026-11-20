@@ -6,10 +6,7 @@
 //   今月の貯金額 = 収入 − 支出
 //   自由に使えるお金 = 収入 − 支出 − 貯金目標
 // 固定費も固定収入も月初に1件ずつ記録済みなので、どの式も支出を1回しか引かない。
-//
-// 予算は**固定費を含まない**（自分で加減できる変動費だけの目安）。
-//   月の予算   = カテゴリ別の予算の合計（月全体をじかに入れることはしない）
-//   予算の残り = 月の予算 − 変動費の支出（＝支出 − 固定費）
+
 
 /** 円グラフ・店舗の色に使うパレットの数（css の --swatch-1 … に対応） */
 export const PALETTE_SIZE = 10;
@@ -53,9 +50,9 @@ export function sumAmount(list) {
 /**
  * 月の集計
  * @param {Array} transactions その月の取引
- * @param {{ savingsGoal?: number, budget?: number|null }} opts
+ * @param {{ savingsGoal?: number }} opts
  */
-export function summarize(transactions, { savingsGoal = 0, budget = null } = {}) {
+export function summarize(transactions, { savingsGoal = 0 } = {}) {
   const income = sumAmount(transactions.filter((t) => t.type === 'income'));
   const expense = sumAmount(transactions.filter((t) => t.type === 'expense'));
   const fixed = sumAmount(transactions.filter((t) => t.type === 'expense' && t.source === 'fixed'));
@@ -71,55 +68,9 @@ export function summarize(transactions, { savingsGoal = 0, budget = null } = {})
     // 貯金目標がない時は「使えるお金」を出さない（貯金額とまったく同じ数字になるため）
     free: goal > 0 ? income - expense - goal : null,
     toGoal: goal > 0 ? goal - savings : null,
-    budget,
-    // 予算は固定費を含まないので、使った分も変動費だけで見る
-    budgetLeft: budget == null ? null : budget - (expense - fixed),
     hasIncome: transactions.some((t) => t.type === 'income'),
     count: transactions.length,
   };
-}
-
-/**
- * 予算を決める：その月の設定 → 毎月の既定（month が null）→ 未設定（null）
- * @param {Array} budgets 全予算
- * @param {string} month YYYY-MM
- * @param {string|null} categoryId null は月全体の予算
- */
-export function resolveBudget(budgets, month, categoryId = null) {
-  const target = categoryId ?? null;
-  const same = (b) => (b.categoryId ?? null) === target;
-  const forMonth = budgets.find((b) => b.month === month && same(b));
-  if (forMonth) return Number(forMonth.amount) || 0;
-  const def = budgets.find((b) => (b.month ?? null) === null && same(b));
-  return def ? Number(def.amount) || 0 : null;
-}
-
-/**
- * その月の予算＝カテゴリ別の予算の合計（1つも設定が無ければ null）。
- * 月全体をじかに入れることはしない（カテゴリ別を入れると自動で決まる）
- */
-export function totalBudget(budgets, categories, month) {
-  let total = 0;
-  let any = false;
-  for (const c of categories) {
-    if (c.type && c.type !== 'expense') continue;
-    const v = resolveBudget(budgets, month, c.id);
-    if (v != null) {
-      total += v;
-      any = true;
-    }
-  }
-  return any ? total : null;
-}
-
-/**
- * その月・そのカテゴリに「じかに設定されている」予算（無ければ null）。
- * resolveBudget は既定にさかのぼって返すが、こちらは設定画面で中身を出すために使う
- */
-export function rawBudget(budgets, month, categoryId = null) {
-  const target = categoryId ?? null;
-  const hit = budgets.find((b) => (b.month ?? null) === (month ?? null) && (b.categoryId ?? null) === target);
-  return hit ? (Number(hit.amount) || 0) : null;
 }
 
 /**
@@ -190,25 +141,6 @@ export function savingsPace(monthly, months = 3) {
 }
 
 /**
- * 予定（買いたい物・やりたい事）が実現できそうか。
- * その月までに貯まる見込み（今ある分 ＋ ペース × 残り月数）と、その月までの予定の累計を比べる。
- * @returns {Map<string, {reachable:boolean, short:number, need:number, have:number}>}
- */
-export function planOutlook(plans, now, pace, current = 0) {
-  const out = new Map();
-  if (pace == null) return out;
-  const sorted = [...plans].filter((p) => p.month).sort((a, b) => a.month.localeCompare(b.month));
-  let need = 0;
-  for (const p of sorted) {
-    need += Number(p.price) || 0;
-    const months = Math.max(0, monthsBetween(now, p.month));
-    const have = current + Math.max(0, pace) * months;
-    out.set(p.id, { reachable: have >= need, short: Math.max(0, need - have), need, have });
-  }
-  return out;
-}
-
-/**
  * 取引（収入・支出）の入力の検証と整形
  * @returns {{ ok:true, value:object } | { ok:false, errors:Record<string,string> }}
  */
@@ -245,8 +177,8 @@ export function validateTransactionInput(raw) {
   };
 }
 
-/** 予算の入力の検証（空欄は「設定しない」＝ null） */
-export function validateBudgetAmount(raw) {
+/** 金額の入力の検証（空欄は「設定しない」＝ null）。貯金目標で使う */
+export function validateYenOrEmpty(raw) {
   const text = String(raw ?? '').replace(/[,円\s]/g, ''); // i18n-ignore
   if (text === '') return { ok: true, value: null };
   const n = Number(text);

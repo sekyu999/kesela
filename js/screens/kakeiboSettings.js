@@ -1,4 +1,4 @@
-// 家計簿の設定：貯金目標・予算（月全体とカテゴリ別）・カテゴリ・固定費
+// 家計簿の設定：貯金目標・カテゴリ・固定費
 import { openSheet } from '../ui/sheet.js';
 import { showErrors, bindErrorClear } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
@@ -11,10 +11,9 @@ import {
   saveExpenseCategoryOrder,
   countTransactionsInCategory,
 } from '../data/expenseCategoryRepo.js';
-import { listBudgets, setBudget } from '../data/budgetRepo.js';
 import { listFixedCosts, getFixedCost, saveFixedCost, deleteFixedCost, countGeneratedRows, applyToMonth } from '../data/fixedCostRepo.js';
 import { getMeta, setMeta, META } from '../data/metaRepo.js';
-import { rawBudget, validateBudgetAmount, PALETTE_SIZE } from '../domain/kakeibo.js';
+import { validateYenOrEmpty, PALETTE_SIZE } from '../domain/kakeibo.js';
 import { averageAmount, SAMPLE_MONTHS, CYCLES, cycleOf, cycleLabel, spreadOf, spreadLabel, monthlyAmount } from '../domain/fixedCost.js';
 import { thisMonth } from '../domain/plans.js';
 import { ValidationError } from '../data/productRepo.js';
@@ -24,23 +23,18 @@ import { yearOptions, monthOptions } from '../ui/monthPick.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText, monthOnlyText } from '../lib/i18n.js';
 
-/** 予算をどこに保存するか（毎月の既定か、その月だけか）。シートを開いている間だけ覚える */
-let budgetTarget = 'default';
-
 /** 家計簿の設定シート */
 export async function openKakeiboSettings(month = thisMonth()) {
   const sheet = openSheet({ title: t('家計簿の設定'), body: `<div class="stack" data-body></div>` });
   const body = sheet.el.querySelector('[data-body]');
 
   async function render() {
-    const [categories, budgets, fixedCosts, goal] = await Promise.all([
+    const [categories, fixedCosts, goal] = await Promise.all([
       listExpenseCategories(),
-      listBudgets(),
       listFixedCosts(),
       getMeta(META.savingsGoal),
     ]);
     const expenseCats = categories.filter((c) => c.type === 'expense');
-    const target = budgetTarget === 'month' ? month : null;
     const amountInput = (name, value, placeholder = '') =>
       `<div class="row" style="align-items:center">
         <input name="${name}" class="input grow" inputmode="numeric" value="${value == null ? '' : value}"
@@ -57,29 +51,6 @@ export async function openKakeiboSettings(month = thisMonth()) {
             <p class="field-error" data-error-for="savingsGoal"></p></div>
         </section>
 
-        <section style="margin-top:18px">
-          <h3 class="section-title">${t('予算')}</h3>
-          <p class="sheet-lead">${t('カテゴリごとに、使っていい額を入れてください。月全体の予算はその合計になります。固定費は含みません。')}</p>
-          <div class="segmented" role="tablist">
-            <button type="button" role="tab" data-target="default" aria-selected="${String(budgetTarget === 'default')}">${t('毎月')}</button>
-            <button type="button" role="tab" data-target="month" aria-selected="${String(budgetTarget === 'month')}">${t('{month}だけ', { month: monthText(month, null) })}</button>
-          </div>
-          <p class="budget-total" data-total></p>
-          ${expenseCats
-            .map(
-              (c) => `<div class="field kb-catbudget">
-                <label for="f-cb-${c.id}"><span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>${esc(c.name)}</label>
-                <div class="row" style="align-items:center">
-                  <input id="f-cb-${c.id}" name="cat-${c.id}" class="input grow" inputmode="numeric"
-                         value="${rawBudget(budgets, target, c.id) ?? ''}"
-                         placeholder="${budgetTarget === 'month' ? esc(t('毎月の設定を使う')) : ''}" autocomplete="off">
-                  <span class="unit-suffix">${t('円')}</span>
-                </div>
-              </div>`
-            )
-            .join('')}
-          <p class="field-error" data-error-for="cats"></p>
-        </section>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
         </div>
@@ -137,57 +108,14 @@ export async function openKakeiboSettings(month = thisMonth()) {
     const form = body.querySelector('[data-budget-form]');
     bindErrorClear(form);
 
-    // カテゴリ別を入れると、月全体の予算が自動で決まる（打ちながら合計を出す）
-    const totalEl = form.querySelector('[data-total]');
-    const paintTotal = () => {
-      let sum = 0;
-      let any = false;
-      for (const c of expenseCats) {
-        const r = validateBudgetAmount(form.elements.namedItem(`cat-${c.id}`).value);
-        const v = r.ok ? r.value : null;
-        // その月だけの画面で空欄なら、毎月の設定が使われる
-        const eff = v ?? (budgetTarget === 'month' ? rawBudget(budgets, null, c.id) : null);
-        if (eff != null) {
-          sum += eff;
-          any = true;
-        }
-      }
-      totalEl.textContent = any
-        ? t('月全体の予算：{amount}', { amount: money(sum) })
-        : t('カテゴリごとに入れると、月全体の予算が決まります');
-    };
-    form.addEventListener('input', paintTotal);
-    paintTotal();
-
-    // 予算の保存先（毎月／この月だけ）
-    form.querySelectorAll('[data-target]').forEach((b) =>
-      b.addEventListener('click', () => {
-        budgetTarget = b.dataset.target;
-        render();
-      })
-    );
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const errors = {};
-      const read = (name, key) => {
-        const r = validateBudgetAmount(form.elements.namedItem(name).value);
-        if (!r.ok) errors[key] = r.error;
-        return r.ok ? r.value : null;
-      };
-      const goalValue = read('savingsGoal', 'savingsGoal');
-      const catValues = expenseCats.map((c) => {
-        const r = validateBudgetAmount(form.elements.namedItem(`cat-${c.id}`).value);
-        if (!r.ok) errors.cats = r.error;
-        return [c.id, r.ok ? r.value : null];
-      });
-      if (Object.keys(errors).length) {
-        showErrors(form, errors);
+      const r = validateYenOrEmpty(form.elements.namedItem('savingsGoal').value);
+      if (!r.ok) {
+        showErrors(form, { savingsGoal: r.error });
         return;
       }
-      await setMeta(META.savingsGoal, goalValue ?? 0);
-      // 月全体の予算は持たない（カテゴリ別の合計で決まる）
-      for (const [id, v] of catValues) await setBudget(target, id, v);
+      await setMeta(META.savingsGoal, r.value ?? 0);
       toast(t('保存しました'));
       render();
     });

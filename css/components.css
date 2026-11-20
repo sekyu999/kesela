@@ -1125,7 +1125,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .item-best { display: inline-flex; flex: none; gap: 3px; }
 .item-row.is-elsewhere .item-main, .item-row.is-elsewhere .item-qty { opacity: 0.45; }
 .notice-pace { margin-bottom: 4px; }
-.badge-reach { background: var(--accent-soft); color: var(--accent); }
 
 /* ===== v1.15 の調整 ===== */
 /* 家計簿：かんたん入力（iPhone で1画面に収まるよう余白を詰める） */
@@ -1182,7 +1181,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 
 /* かんたん入力の「記録する」 */
 .quick-actions { display: block; margin-top: 16px; }
-.budget-total { margin: 12px 0 4px; font-weight: 700; text-align: center; }
 
 /* アプリのアイコンを選ぶ */
 .icon-pick { display: flex; gap: 12px; }

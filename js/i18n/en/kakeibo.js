@@ -1,5 +1,6 @@
 // 英訳：家計簿（記録・カテゴリ・固定費・予算）
 export default {
+  毎月: 'Every month',
   // 家計簿の初期カテゴリ（名前が同じ時だけ英語で表示）
   住居: 'Housing',
   '水道・光熱': 'Utilities',
@@ -38,7 +39,6 @@ export default {
   今月自由に使えるお金: 'Free to spend this month',
   '収入 {income} − 使った {expense} − 貯金目標 {goal}': 'Income {income} − spent {expense} − savings goal {goal}',
   '収入{income}、支出{expense}、貯金目標{goal}': 'Income {income}, expenses {expense}, savings goal {goal}',
-  予算の残り: 'Budget left',
   '月予算 {budget}（固定費 {fixed} を含む）': 'Monthly budget {budget} (includes {fixed} of fixed costs)',
   何に使ったか: 'Where it went',
   カテゴリ別の支出: 'Expenses by category',
@@ -88,7 +88,6 @@ export default {
   カテゴリ別の予算: 'Budget by category',
   '毎月の既定として保存します。空欄なら出しません。': 'Saved as the monthly default. Leave empty to hide it.',
   '例：50000': 'e.g. 50000',
-  '例：200000': 'e.g. 200000',
   // 固定費
   '固定費・固定収入': 'Fixed costs and income',
   '固定費（支出）': 'Fixed cost',
@@ -140,7 +139,6 @@ export default {
   '今日（{date}）の記録になります': 'Will be recorded as today ({date})',
   '例：スーパー、ランチ': 'e.g. groceries, lunch',
   '上の欄に金額を入れて「記録する」を押すと、ここに並びます。': 'Enter an amount above and tap Record — it will appear here.',
-  '予算・固定費・カテゴリ・貯金目標を設定': 'Set budget, fixed costs, categories and savings goal',
   // カテゴリの編集
   色: 'Colour',
   'このカテゴリの記録が{n}件あります。': 'This category has {n} record(s).',
@@ -163,11 +161,6 @@ export default {
   // 価格
   '上の「お店」から登録してください。': 'Add one from the "Stores" tab above.',
   お店: 'Stores',
-  予算: 'Budget',
-  月全体: 'Whole month',
-  カテゴリ別: 'By category',
-  毎月: 'Every month',
-  '固定費を含む、使っていい額。空欄なら出しません。': 'What you may spend, fixed costs included. Leave empty to hide it.',
   空欄なら毎月の設定を使う: 'Leave empty to use the every-month setting',
   '＋ カテゴリを追加': '+ Add a category',
   '名前と色を変えられます。≡ を押さえると並べ替えられます。並べた順に表示します。': 'You can change the name and colour. Hold ≡ to reorder — that order is used everywhere.',
@@ -181,11 +174,7 @@ export default {
   月曜: 'Monday',
   記録: 'Record',
   'メモ（任意）': 'Note (optional)',
-  '予算 {budget}（固定費は含みません）・使った {used}': 'Budget {budget} (excludes fixed costs) · spent {used}',
   '固定費を除いた支出の合計 {total}': 'Total spending excluding fixed costs {total}',
-  'カテゴリごとに、使っていい額を入れてください。月全体の予算はその合計になります。固定費は含みません。': 'Enter what you may spend per category. The monthly budget is their total. Fixed costs are not included.',
-  '月全体の予算：{amount}': 'Monthly budget: {amount}',
-  'カテゴリごとに入れると、月全体の予算が決まります': 'Enter amounts per category to set the monthly budget',
   毎月の設定を使う: 'Uses the every-month setting',
   アプリのアイコン: 'App icon',
   'ホーム画面のアイコンは、一度消してから追加し直すと変わります': 'The home screen icon changes when you remove the app and add it again',
@@ -203,6 +192,7 @@ export default {
   '{total}を{n}か月に分けて、毎月{each}として入れます': 'Splits {total} over {n} months and records {each} each month',
   '請求が来る月にだけ{total}を入れます。「いつから」の月が基準です': 'Records {total} only in the billing months, counted from the starting month',
   '水道代のように隔月の物は、ここで間隔を選びます。': 'For things paid every other month, such as water, choose the interval here.',
+  '固定費・カテゴリ・貯金目標を設定': 'Set fixed costs, categories and savings goal',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

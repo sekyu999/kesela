@@ -2,18 +2,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  totalBudget,
   monthRange,
   monthOf,
   summarize,
-  resolveBudget,
   byCategory,
   donutSlices,
   monthsBetween,
   savingsPace,
-  planOutlook,
   validateTransactionInput,
-  validateBudgetAmount,
+  validateYenOrEmpty,
 } from '../js/domain/kakeibo.js';
 
 const tx = (type, amount, extra = {}) => ({ type, amount, date: '2026-11-10', categoryId: 'c1', source: 'manual', ...extra });
@@ -50,38 +47,6 @@ test('使えるお金は収入−支出−貯金目標。目標がなければ�
 test('収入が1件も無いと分かる（固定収入の未登録を知らせる用）', () => {
   assert.equal(summarize([tx('expense', 1000)]).hasIncome, false);
   assert.equal(summarize([tx('income', 1)]).hasIncome, true);
-});
-
-test('予算は固定費を含まない。残りは変動費の支出だけ引く', () => {
-  const s = summarize([tx('expense', 80000, { source: 'fixed' }), tx('expense', 32000)], { budget: 50000 });
-  assert.equal(s.fixed, 80000);
-  assert.equal(s.variable, 32000);
-  assert.equal(s.budgetLeft, 18000); // 50000 − 32000（固定費の 80000 は引かない）
-  assert.equal(summarize([], {}).budgetLeft, null);
-});
-
-test('月の予算はカテゴリ別の合計。1つも入れていなければ出さない', () => {
-  const cats = [{ id: 'c1', type: 'expense' }, { id: 'c2', type: 'expense' }, { id: 'c3', type: 'expense' }];
-  const budgets = [
-    { id: '1', month: null, categoryId: 'c1', amount: 40000 },
-    { id: '2', month: null, categoryId: 'c2', amount: 10000 },
-    { id: '3', month: '2026-11', categoryId: 'c2', amount: 15000 },
-  ];
-  assert.equal(totalBudget(budgets, cats, '2026-12'), 50000);
-  assert.equal(totalBudget(budgets, cats, '2026-11'), 55000); // その月の上書きが優先
-  assert.equal(totalBudget([], cats, '2026-11'), null);
-});
-
-test('予算はその月の設定 → 毎月の既定 → 未設定の順', () => {
-  const budgets = [
-    { id: '1', month: null, categoryId: null, amount: 200000 },
-    { id: '2', month: '2026-11', categoryId: null, amount: 250000 },
-    { id: '3', month: null, categoryId: 'c1', amount: 40000 },
-  ];
-  assert.equal(resolveBudget(budgets, '2026-11'), 250000);
-  assert.equal(resolveBudget(budgets, '2026-12'), 200000);
-  assert.equal(resolveBudget(budgets, '2026-11', 'c1'), 40000);
-  assert.equal(resolveBudget(budgets, '2026-11', 'c2'), null);
 });
 
 test('カテゴリ別は多い順、割合は支出合計に対して', () => {
@@ -144,18 +109,6 @@ test('貯金ペースは新しい方から3か月の平均', () => {
   assert.equal(monthsBetween('2026-11', '2027-03'), 4);
 });
 
-test('予定は累計で見て、届くかを判定する', () => {
-  const plans = [
-    { id: 'p1', price: 20000, month: '2026-12' },
-    { id: 'p2', price: 300000, month: '2027-01' },
-  ];
-  const out = planOutlook(plans, '2026-11', 30000, 10000);
-  assert.equal(out.get('p1').reachable, true); // 10000 + 30000 ≧ 20000
-  assert.equal(out.get('p2').reachable, false); // 10000 + 30000×2 < 20000 + 300000
-  assert.equal(out.get('p2').short, 250000);
-  assert.equal(planOutlook(plans, '2026-11', null).size, 0);
-});
-
 test('記録の入力：金額は1円以上の整数、カテゴリと日付は必須', () => {
   const base = { type: 'expense', amount: '1,280', categoryId: 'c1', date: '2026-11-20' };
   assert.equal(validateTransactionInput(base).value.amount, 1280);
@@ -167,8 +120,8 @@ test('記録の入力：金額は1円以上の整数、カテゴリと日付は�
   assert.equal(validateTransactionInput({ ...base, type: 'income' }).value.type, 'income');
 });
 
-test('予算の入力：空欄は「設定しない」', () => {
-  assert.deepEqual(validateBudgetAmount(''), { ok: true, value: null });
-  assert.deepEqual(validateBudgetAmount('200,000'), { ok: true, value: 200000 });
-  assert.equal(validateBudgetAmount('-1').ok, false);
+test('金額の入力（貯金目標）：空欄は「設定しない」', () => {
+  assert.deepEqual(validateYenOrEmpty(''), { ok: true, value: null });
+  assert.deepEqual(validateYenOrEmpty('200,000'), { ok: true, value: 200000 });
+  assert.equal(validateYenOrEmpty('-1').ok, false);
 });

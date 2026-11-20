@@ -118,7 +118,7 @@ db.version(6)
     expenseCategories: 'id, type, defaultOrder',
     transactions: 'id, date, categoryId, type, fixedCostId',
     fixedCosts: 'id, categoryId',
-    budgets: 'id', // 件数が少なく、月・カテゴリが null の行もあるので全件読んで決める
+    budgets: 'id', // v1.16 で予算機能をやめたため今は使っていない（前に入れた内容を消さないために残す）
   })
   .upgrade(async (tx) => {
     // 店舗に色を割り当てる（登録順）

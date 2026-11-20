@@ -1,7 +1,7 @@
 // 家計タブ：上のセグメントで「記録」「今月」「カレンダー」「予定」を切り替える
 //
 // ・記録      … かんたん入力だけ。iPhone で1画面に収まり、開いてすぐ記録できる
-// ・今月      … 収入・支出・貯金・使えるお金・予算・何に使ったか（円グラフ）
+// ・今月      … 収入・支出・貯金・使えるお金・何に使ったか（円グラフ）
 // ・カレンダー … 日ごとの支出と、日付ごとにまとめた記録
 // ・予定      … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
 import { watch } from '../ui/live.js';
@@ -9,9 +9,8 @@ import { toast } from '../ui/toast.js';
 import { listByMonth, monthlySavings } from '../data/transactionRepo.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
-import { listBudgets } from '../data/budgetRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
-import { summarize, totalBudget, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
+import { summarize, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
 import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
@@ -140,9 +139,8 @@ function mountMonth(el) {
 
   function render() {
     if (!state) return;
-    const { rows, categories, fixedCosts, budgets, savingsGoal } = state;
-    const month = thisMonth();
-    const s = summarize(rows, { savingsGoal, budget: totalBudget(budgets, categories, month) });
+    const { rows, categories, fixedCosts, savingsGoal } = state;
+    const s = summarize(rows, { savingsGoal });
     // 円グラフは変動費だけ（固定費は毎月同じなので、何に使ったかの参考にならない）
     const cats = byCategory(
       rows.filter((r) => !r.fixedCostId),
@@ -160,9 +158,8 @@ function mountMonth(el) {
           </ul>
           ${freeHtml(s)}
         </section>
-        ${budgetHtml(s)}
         ${cats.length ? donutHtml(donutSlices(cats), s.variable) : ''}
-        <button type="button" class="btn btn-block" data-action="settings">${t('予算・固定費・カテゴリ・貯金目標を設定')}</button>
+        <button type="button" class="btn btn-block" data-action="settings">${t('固定費・カテゴリ・貯金目標を設定')}</button>
       </div>`;
   }
 
@@ -171,7 +168,6 @@ function mountMonth(el) {
       rows: await listByMonth(thisMonth()),
       categories: await listExpenseCategories(),
       fixedCosts: await listFixedCosts(),
-      budgets: await listBudgets(),
       savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
     }),
     (s) => {
@@ -203,18 +199,6 @@ function freeHtml(s) {
       goal: money(s.savingsGoal),
     })}</p>
   </div>`;
-}
-
-/** 予算の残り（カテゴリ別の予算を入れている時だけ）。予算は固定費を含まない */
-function budgetHtml(s) {
-  if (s.budget == null) return '';
-  const pct = Math.min(100, s.budget ? (s.variable / s.budget) * 100 : 0);
-  const over = s.budgetLeft < 0;
-  return `<section class="card">
-    <div class="kb-free-head"><span>${t('予算の残り')}</span><strong class="${over ? 'is-minus' : ''}">${money(s.budgetLeft)}</strong></div>
-    <div class="kb-bar"><span class="kb-bar-used ${over ? 'is-over' : ''}" style="width:${pct}%"></span></div>
-    <p class="kb-free-note">${t('予算 {budget}（固定費は含みません）・使った {used}', { budget: money(s.budget), used: money(s.variable) })}</p>
-  </section>`;
 }
 
 /** 何に使ったか：円グラフ（名前を輪の中に出す）と一覧 */
