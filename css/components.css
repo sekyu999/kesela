@@ -1124,7 +1124,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 /* 買い物リスト：最安のお店と、ここでは買わない方がいい行 */
 .item-best { display: inline-flex; flex: none; gap: 3px; }
 .item-row.is-elsewhere .item-main, .item-row.is-elsewhere .item-qty { opacity: 0.45; }
-.notice-pace { margin-bottom: 4px; }
 
 /* ===== v1.15 の調整 ===== */
 /* 家計簿：かんたん入力（iPhone で1画面に収まるよう余白を詰める） */

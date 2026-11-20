@@ -11,17 +11,6 @@ export async function listByMonth(month) {
   return rows.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
-/** 月ごとの「収入 − 支出」（貯金ペースの計算用）。新しい月から months か月分 */
-export async function monthlySavings(months) {
-  const out = [];
-  for (const month of months) {
-    const rows = await listByMonth(month);
-    const sum = (type) => rows.filter((r) => r.type === type).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    out.push({ month, savings: sum('income') - sum('expense'), count: rows.length });
-  }
-  return out;
-}
-
 export function getTransaction(id) {
   return db.transactions.get(id);
 }

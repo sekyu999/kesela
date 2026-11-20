@@ -8,7 +8,6 @@ import {
   byCategory,
   donutSlices,
   monthsBetween,
-  savingsPace,
   validateTransactionInput,
   validateYenOrEmpty,
 } from '../js/domain/kakeibo.js';
@@ -97,16 +96,10 @@ test('ドーナツの区切りは前の分だけずれる', () => {
   );
 });
 
-test('貯金ペースは新しい方から3か月の平均', () => {
-  const monthly = [
-    { month: '2026-08', savings: 100 },
-    { month: '2026-09', savings: 20000 },
-    { month: '2026-10', savings: 30000 },
-    { month: '2026-11', savings: 40000 },
-  ];
-  assert.equal(savingsPace(monthly), 30000);
-  assert.equal(savingsPace([]), null);
+test('年月の差を数えられる（隔月の判定などで使う）', () => {
   assert.equal(monthsBetween('2026-11', '2027-03'), 4);
+  assert.equal(monthsBetween('2026-11', '2026-11'), 0);
+  assert.equal(monthsBetween('2027-01', '2026-11'), -2);
 });
 
 test('記録の入力：金額は1円以上の整数、カテゴリと日付は必須', () => {

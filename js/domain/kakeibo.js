@@ -130,17 +130,6 @@ export function monthsBetween(from, to) {
 }
 
 /**
- * 貯金ペース：新しい方から months か月分の「収入 − 支出」の平均（円・整数）
- * @param {Array<{month:string, savings:number}>} monthly
- * @returns {number|null} 実績が1か月も無ければ null
- */
-export function savingsPace(monthly, months = 3) {
-  const rows = [...monthly].sort((a, b) => b.month.localeCompare(a.month)).slice(0, months);
-  if (!rows.length) return null;
-  return Math.round(rows.reduce((s, r) => s + (Number(r.savings) || 0), 0) / rows.length);
-}
-
-/**
  * 取引（収入・支出）の入力の検証と整形
  * @returns {{ ok:true, value:object } | { ok:false, errors:Record<string,string> }}
  */

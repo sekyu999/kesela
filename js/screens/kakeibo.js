@@ -6,7 +6,7 @@
 // ・予定      … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
 import { watch } from '../ui/live.js';
 import { toast } from '../ui/toast.js';
-import { listByMonth, monthlySavings } from '../data/transactionRepo.js';
+import { listByMonth } from '../data/transactionRepo.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
@@ -367,15 +367,4 @@ function dayRowHtml(r, catById, fxById) {
 export function openMonth(month) {
   viewMonth = monthOf(`${month}-01`);
   segment = 'month';
-}
-
-/** 貯金ペースの計算に使う月の一覧（予定タブで使う） */
-export async function recentSavings(months = 3) {
-  const list = [];
-  let m = thisMonth();
-  for (let i = 0; i < months; i++) {
-    list.push(m);
-    m = addMonths(m, -1);
-  }
-  return monthlySavings(list);
 }

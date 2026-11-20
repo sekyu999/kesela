@@ -131,7 +131,6 @@ export default {
   // 予定の達成見込み
   届きそう: 'On track',
   'あと{n}': '{n} short',
-  '今の貯金ペース：1か月あたり {pace}（直近3か月の実績）': 'Current saving pace: {pace} a month (last 3 months)',
   // かんたん入力（v1.15）
   記録する: 'Record',
   記録しました: 'Recorded',

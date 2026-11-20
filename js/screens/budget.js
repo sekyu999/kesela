@@ -6,9 +6,7 @@ import { toast } from '../ui/toast.js';
 import { listPlans, getPlan, savePlan, deletePlan, restorePlan, setPlanMonth } from '../data/planRepo.js';
 import { makeMovable } from '../ui/moveDrag.js';
 import { ValidationError } from '../data/productRepo.js';
-import { PLAN_KINDS, monthlyTotals, groupByMonth, thisMonth, addMonths } from '../domain/plans.js';
-import { savingsPace } from '../domain/kakeibo.js';
-import { monthlySavings } from '../data/transactionRepo.js';
+import { PLAN_KINDS, monthlyTotals, groupByMonth, thisMonth } from '../domain/plans.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText } from '../lib/i18n.js';
 import { yearOptions, monthOptions } from '../ui/monthPick.js';
@@ -26,7 +24,6 @@ let filter = 'all';
 export function mount(el) {
   el.innerHTML = `
     <div class="stack">
-      <div id="pace"></div>
       <section class="card">
         <h2 class="card-title">${t('月ごとの見込み')}</h2>
         <ul class="month-bars" id="month-bars"></ul>
@@ -43,7 +40,6 @@ export function mount(el) {
     <button type="button" class="fab" data-action="add">${t('＋ 追加')}</button>
   `;
   const barsEl = el.querySelector('#month-bars');
-  const paceEl = el.querySelector('#pace');
   const listEl = el.querySelector('#plan-list');
   let state = null;
 
@@ -80,13 +76,7 @@ export function mount(el) {
 
   function render() {
     if (!state) return;
-    const { plans, monthly } = state;
-    // 家計簿の実績から貯金ペースを出し、予定が実現できそうかを見る
-    const pace = savingsPace(monthly);
-    const hasRecords = monthly.some((m) => m.count > 0);
-    paceEl.innerHTML = hasRecords
-      ? `<p class="notice notice-pace">${t('今の貯金ペース：1か月あたり {pace}（直近3か月の実績）', { pace: money(pace) })}</p>`
-      : '';
+    const { plans } = state;
     el.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.filter === filter)));
     const now = thisMonth();
 
@@ -130,10 +120,7 @@ export function mount(el) {
   }
 
   return watch(
-    async () => ({
-      plans: await listPlans(),
-      monthly: await monthlySavings([thisMonth(), addMonths(thisMonth(), -1), addMonths(thisMonth(), -2)]),
-    }),
+    async () => ({ plans: await listPlans() }),
     (s) => {
       state = s;
       render();
