@@ -16,4 +16,6 @@ export const META = {
   lastBackupAt: 'lastBackupAt', // 最後にバックアップを保存した日時
   profile: 'profile', // 栄養の目標に使う { sex, age, activity, menstruation }
   note: 'note', // 目標メモ { text, updatedAt }
+  savingsGoal: 'savingsGoal', // 家計簿：今月ためたい額（円）
+  fixedGeneratedMonth: 'fixedGeneratedMonth', // 家計簿：固定費を記録に起こした最後の月（YYYY-MM）
 };

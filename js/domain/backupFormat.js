@@ -9,12 +9,13 @@
 // }
 
 import { splitCategories, mergeCategories, reorganizeCategories } from './categories.js';
+import { PALETTE_SIZE } from './kakeibo.js';
 import { newId } from '../lib/util.js';
 
 export const APP_ID = 'kesela';
 /** 以前のアプリ名（この名前のバックアップも読み込める） */
 export const OLD_APP_IDS = ['yuteli'];
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * 読み込み失敗の結果。error は日本語の文（テスト・ログ用）、
@@ -30,6 +31,10 @@ const isStrOrNull = (v) => v === null || v === undefined || typeof v === 'string
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isCount = (v) => Number.isInteger(v) && v >= 0;
 const isAmount = (v) => isNum(v) && v >= 0;
+const isBoolOrNone = (v) => v === undefined || typeof v === 'boolean';
+const isNumOrNone = (v) => v === undefined || isNum(v);
+const isMonth = (v) => v === null || v === undefined || /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+const isKind = (v) => v === 'expense' || v === 'income';
 
 /** テーブルごとの必須項目チェック。問題があれば理由を返す */
 const RULES = {
@@ -45,8 +50,10 @@ const RULES = {
             ? 'currentStock'
             : !isCount(r.targetStock)
               ? 'targetStock'
-              : null,
-  stores: (r) => (!isStr(r.name) ? 'name' : null),
+              : !isBoolOrNone(r.trackStock)
+                ? 'trackStock'
+                : null,
+  stores: (r) => (!isStr(r.name) ? 'name' : !isNumOrNone(r.colorIndex) ? 'colorIndex' : null),
   storeShelfOrders: (r) =>
     !isStr(r.storeId) ? 'storeId' : !isStr(r.categoryId) ? 'categoryId' : !isNum(r.sortOrder) ? 'sortOrder' : null,
   shoppingListItems: (r) =>
@@ -71,6 +78,35 @@ const RULES = {
             : !isStrOrNull(r.url)
               ? 'url'
               : null,
+  expenseCategories: (r) =>
+    !isStr(r.name) ? 'name' : !isKind(r.type) ? 'type' : !isNum(r.defaultOrder) ? 'defaultOrder' : null,
+  transactions: (r) =>
+    !isKind(r.type)
+      ? 'type'
+      : !isAmount(r.amount)
+        ? 'amount'
+        : !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date))
+          ? 'date'
+          : !isStrOrNull(r.categoryId)
+            ? 'categoryId'
+            : !isStrOrNull(r.fixedCostId)
+              ? 'fixedCostId'
+              : null,
+  fixedCosts: (r) =>
+    !isStr(r.name)
+      ? 'name'
+      : !isKind(r.type)
+        ? 'type'
+        : !isAmount(r.amount)
+          ? 'amount'
+          : !isStrOrNull(r.categoryId)
+            ? 'categoryId'
+            : !isMonth(r.startMonth)
+              ? 'startMonth'
+              : !isMonth(r.endMonth)
+                ? 'endMonth'
+                : null,
+  budgets: (r) => (!isAmount(r.amount) ? 'amount' : !isMonth(r.month) ? 'month' : !isStrOrNull(r.categoryId) ? 'categoryId' : null),
   priceRecords: (r) =>
     !isStr(r.productId)
       ? 'productId'
@@ -129,6 +165,15 @@ const MIGRATIONS = {
     });
     const sorted = [...r.products].sort((x, y) => String(x.name).localeCompare(String(y.name), 'ja'));
     b.data.products = sorted.map((p, i) => ({ ...p, sortOrder: p.sortOrder ?? i + 1 }));
+    return b;
+  },
+  // 版5 → 版6：家計簿を追加。店舗に色、商品に「在庫を管理するか」を足す
+  6: (b) => {
+    for (const t of ['expenseCategories', 'transactions', 'fixedCosts', 'budgets']) b.data[t] ??= [];
+    (b.data.stores ?? []).forEach((s2, i) => {
+      s2.colorIndex ??= i % PALETTE_SIZE;
+    });
+    for (const p of b.data.products ?? []) p.trackStock ??= true;
     return b;
   },
   // 版4 → 版5：カテゴリを組み直す（v1.12）

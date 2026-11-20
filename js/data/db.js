@@ -3,6 +3,7 @@ import Dexie from '../../vendor/dexie.mjs';
 import { newId, todayLocal } from '../lib/util.js';
 import { CURRENT_SCHEMA_VERSION } from '../domain/backupFormat.js';
 import { DEFAULT_CATEGORIES, splitCategories, mergeCategories, reorganizeCategories } from '../domain/categories.js';
+import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, PALETTE_SIZE } from '../domain/kakeibo.js';
 import { syncEnabled, CLOUD_DB_URL } from './syncConfig.js';
 
 /** データ構造の版（バックアップにも記録する） */
@@ -108,17 +109,60 @@ db.version(5)
     }
   });
 
+
+// 版6：家計簿（記録・カテゴリ・固定費・予算）を追加。
+// 既存テーブルへの追加は2つだけ：店舗の色（colorIndex）と、商品の「在庫を管理するか」（trackStock）。
+// 既存の値は書き換えない。
+db.version(6)
+  .stores({
+    expenseCategories: 'id, type, defaultOrder',
+    transactions: 'id, date, categoryId, type, fixedCostId',
+    fixedCosts: 'id, categoryId',
+    budgets: 'id', // 件数が少なく、月・カテゴリが null の行もあるので全件読んで決める
+  })
+  .upgrade(async (tx) => {
+    // 店舗に色を割り当てる（登録順）
+    const stores = await tx.table('stores').toArray();
+    stores.sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')));
+    for (let i = 0; i < stores.length; i++) {
+      if (stores[i].colorIndex == null) await tx.table('stores').update(stores[i].id, { colorIndex: i % PALETTE_SIZE });
+    }
+    // 今ある商品はすべて「在庫を管理する」（＝今までと同じ）
+    await tx
+      .table('products')
+      .toCollection()
+      .modify((p) => {
+        p.trackStock ??= true;
+      });
+    // 家計簿の初期カテゴリ。同期する時はここでは入れない（2台目で二重になるため。js/data/sync.js で入れる）
+    if (!SYNC && !(await tx.table('expenseCategories').count())) {
+      await tx.table('expenseCategories').bulkAdd(defaultExpenseCategoryRows());
+    }
+  });
+
 /** 並び順のない商品に、カテゴリごと名前順の sortOrder を付ける */
 export function withSortOrder(products) {
   const sorted = [...products].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   return sorted.map((p, i) => ({ ...p, sortOrder: p.sortOrder ?? i + 1 }));
 }
 
-export { DEFAULT_CATEGORIES };
+export { DEFAULT_CATEGORIES, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES };
 
 /** 初期カテゴリのデータを作る（初回起動・初期化で使う） */
 export function defaultCategoryRows() {
   return DEFAULT_CATEGORIES.map((name, i) => ({ id: newId(), name, defaultOrder: i + 1 }));
+}
+
+/** 家計簿の初期カテゴリのデータを作る（支出のあとに収入） */
+export function defaultExpenseCategoryRows() {
+  const rows = [];
+  DEFAULT_EXPENSE_CATEGORIES.forEach((name, i) =>
+    rows.push({ id: newId(), name, type: 'expense', colorIndex: i % PALETTE_SIZE, defaultOrder: rows.length + 1 })
+  );
+  DEFAULT_INCOME_CATEGORIES.forEach((name, i) =>
+    rows.push({ id: newId(), name, type: 'income', colorIndex: i % PALETTE_SIZE, defaultOrder: rows.length + 1 })
+  );
+  return rows;
 }
 
 // データベースが初めて作られた時だけ実行される。
@@ -126,6 +170,7 @@ export function defaultCategoryRows() {
 db.on('populate', (tx) => {
   if (SYNC) return;
   tx.table('categories').bulkAdd(defaultCategoryRows());
+  tx.table('expenseCategories').bulkAdd(defaultExpenseCategoryRows());
   tx.table('meta').put({ key: 'schemaVersion', value: SCHEMA_VERSION });
 });
 
@@ -139,17 +184,11 @@ export const DATA_TABLES = [
   'priceRecords',
   'foodGroups',
   'plans',
+  'expenseCategories',
+  'transactions',
+  'fixedCosts',
+  'budgets',
 ];
 
 /** 全テーブル名 */
-export const TABLES = [
-  'categories',
-  'products',
-  'stores',
-  'storeShelfOrders',
-  'shoppingListItems',
-  'priceRecords',
-  'foodGroups',
-  'plans',
-  'meta',
-];
+export const TABLES = [...DATA_TABLES, 'meta'];

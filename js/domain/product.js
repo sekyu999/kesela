@@ -75,12 +75,17 @@ export function validateProductInput(raw) {
     errors.nutrition = '栄養データの形式が正しくありません';
   }
 
+  // 在庫を管理するか。外すと在庫画面に出ず、買い物リストの自動追加の対象にもならない
+  // （価格だけ記録したい物のため。未指定は今までどおり「管理する」）
+  const trackStock = raw.trackStock === undefined ? true : !!raw.trackStock && raw.trackStock !== 'false';
+
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
     value: {
       name,
       categoryId,
+      trackStock,
       inventoryUnit,
       currentStock,
       targetStock,

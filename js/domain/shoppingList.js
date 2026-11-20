@@ -10,6 +10,7 @@ import { shortage } from './product.js';
  *   （不足がなくなった場合は数量を変えずに残す＝未購入は持ち越し）
  * - 購入済み・削除した商品も、不足があれば追加する（v1.10 で購入済み抑制をやめた。autoAddSuppressed は見ない）
  * - 手動追加・健康提案から追加した一時項目には触れない
+ * - 「在庫を管理しない商品」（trackStock が false。価格だけ記録する物）は対象外
  *
  * @param {Array} products 全商品
  * @param {Array} items    現在の買い物リスト
@@ -24,6 +25,7 @@ export function planRefresh(products, items) {
   const toUpdate = [];
 
   for (const p of products) {
+    if (p.trackStock === false) continue; // 在庫を管理しない商品は自動で追加しない
     const need = shortage(p);
     const existing = itemByProduct.get(p.id);
 

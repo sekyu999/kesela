@@ -27,7 +27,7 @@ import { parseBackup, BACKUP_TABLES } from '../domain/backupFormat.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
 import { APP_VERSION } from '../lib/version.js';
 import { openProfileSheet, profileSummary } from './profileSheet.js';
-import { noteOnLaunch, setNoteOnLaunch } from './goals.js';
+import { START_OPTIONS, startScreen, setStartScreen } from '../ui/startScreen.js';
 import { esc } from '../lib/util.js';
 import { t, dateLong, LANG_OPTIONS, getLangPref, setLangPref } from '../lib/i18n.js';
 
@@ -62,11 +62,13 @@ export function mount(el) {
       </section>
 
       <section>
-        <h2 class="section-title">${t('目標')}</h2>
-        <ul class="list">
-          <li><label class="check-row grow"><input type="checkbox" id="note-launch">${t('起動時に表示する')}</label></li>
-        </ul>
-        <p class="note" style="margin-top:6px">${t('閉じずに30分以上ほかのアプリにいて戻った時も表示します')}</p>
+        <h2 class="section-title">${t('起動時の画面')}</h2>
+        <div class="segmented font-levels" role="radiogroup" aria-label="${t('起動時の画面')}">
+          ${START_OPTIONS.map(
+            (o) => `<button type="button" role="radio" data-start="${o.key}" aria-checked="false">${t(o.label)}</button>`
+          ).join('')}
+        </div>
+        <p class="note" style="margin-top:6px">${t('「目標」にすると、閉じずに30分以上ほかのアプリにいて戻った時も目標を表示します')}</p>
       </section>
 
       <section>
@@ -148,10 +150,16 @@ export function mount(el) {
   });
   markFont();
 
-  // ---- 目標メモ ----
-  const launchTg = el.querySelector('#note-launch');
-  launchTg.checked = noteOnLaunch();
-  launchTg.addEventListener('change', () => setNoteOnLaunch(launchTg.checked));
+  // ---- 起動時の画面 ----
+  const markStart = () =>
+    el.querySelectorAll('[data-start]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.start === startScreen())));
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-start]');
+    if (!b) return;
+    setStartScreen(b.dataset.start);
+    markStart();
+  });
+  markStart();
 
   // ---- テーマ ----
   const markTheme = () =>

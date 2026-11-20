@@ -5,5 +5,6 @@ import settings from './en/settings.js';
 import meals from './en/meals.js';
 import budget from './en/budget.js';
 import note from './en/note.js';
+import kakeibo from './en/kakeibo.js';
 
-export const EN = { ...common, ...shopping, ...settings, ...meals, ...budget, ...note };
+export const EN = { ...common, ...shopping, ...settings, ...meals, ...budget, ...note, ...kakeibo };

@@ -4,6 +4,7 @@ import { newId, nowIso } from '../lib/util.js';
 import { nameKey } from '../domain/product.js';
 import { orderCategories } from '../domain/shelf.js';
 import { ValidationError } from './productRepo.js';
+import { PALETTE_SIZE } from '../domain/kakeibo.js';
 
 export function listStores() {
   return db.stores.toArray().then((l) => l.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
@@ -28,12 +29,20 @@ async function assertUnique(name, exceptId) {
 
 export async function createStore(rawName) {
   const name = checkName(rawName);
-  const store = { id: newId(), name, createdAt: nowIso() };
+  let store;
   await db.transaction('rw', db.stores, async () => {
     await assertUnique(name);
+    // 登録順に色を割り当てる（あとから変えられる）
+    const used = await db.stores.count();
+    store = { id: newId(), name, colorIndex: used % PALETTE_SIZE, createdAt: nowIso() };
     await db.stores.add(store);
   });
   return store;
+}
+
+/** お店の色を変える */
+export async function setStoreColor(id, colorIndex) {
+  await db.stores.update(id, { colorIndex: Number(colorIndex) || 0 });
 }
 
 export async function renameStore(id, rawName) {

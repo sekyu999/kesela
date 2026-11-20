@@ -23,7 +23,7 @@ import { t } from '../lib/i18n.js';
 /**
  * @param {string} [id] 指定すると編集、省略すると新規登録
  */
-export async function openProductSheet(id) {
+export async function openProductSheet(id, defaults = {}) {
   const [product, categories, groups] = await Promise.all([id ? getProduct(id) : null, listCategories(), listGroups()]);
   if (id && !product) return;
   const myGroups = product ? groups.filter((g) => g.members.some((m) => m.productId === product.id)) : [];
@@ -42,6 +42,7 @@ export async function openProductSheet(id) {
     consumption: { breakfast: 0, lunch: 0, dinner: 0 },
     gramsPerUnit: null,
     nutrition: null,
+    trackStock: defaults.trackStock ?? true,
   };
   const stockNow = v.currentStock;
   let nutrition = v.nutrition ?? null;
@@ -77,8 +78,15 @@ export async function openProductSheet(id) {
         <p class="field-error" data-error-for="inventoryUnit"></p>
       </div>
 
-      ${stepperField({ name: 'currentStock', label: t('今ある数'), value: stockNow, suffix: v.inventoryUnit })}
-      ${stepperField({ name: 'targetStock', label: t('常に置いておきたい数（目標）'), value: v.targetStock, suffix: v.inventoryUnit })}
+      <div class="field">
+        <label class="check-row"><input type="checkbox" name="trackStock" value="1" ${v.trackStock === false ? '' : 'checked'}>${t('在庫を管理する')}</label>
+        <p class="note">${t('外すと在庫画面に出ず、買い物リストにも自動で入りません。価格だけ記録したい物に使います。')}</p>
+      </div>
+
+      <div data-stock-fields>
+        ${stepperField({ name: 'currentStock', label: t('今ある数'), value: stockNow, suffix: v.inventoryUnit })}
+        ${stepperField({ name: 'targetStock', label: t('常に置いておきたい数（目標）'), value: v.targetStock, suffix: v.inventoryUnit })}
+      </div>
 
       <div class="field">
         <label for="f-packageContent">${t('1{unit}に入っている量', { unit: `<span data-inv-unit>${esc(v.inventoryUnit || t('つ'))}</span>` })} <span class="optional">${t('任意')}</span></label>
@@ -204,11 +212,19 @@ export async function openProductSheet(id) {
   });
   setNutrition(nutrition);
 
+  // 「在庫を管理する」のチェックに合わせて、在庫・目標の欄を出し入れする
+  const stockFields = form.querySelector('[data-stock-fields]');
+  const syncTrack = () => (stockFields.hidden = !el('trackStock').checked);
+  el('trackStock').addEventListener('change', syncTrack);
+  syncTrack();
+
   if (!product) el('name').focus();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const values = formValues(form);
+    // チェックが外れているとフォームの値に入らないので、ここで真偽として入れ直す
+    values.trackStock = el('trackStock').checked;
     try {
       if (product) await saveProduct(product.id, values);
       else await createProduct(values);

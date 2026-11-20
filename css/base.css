@@ -25,6 +25,19 @@
   --header-h: 52px;
   --tabbar-h: 60px;
 
+  /* ---- 色のパレット（円グラフ・お店の色）。テーマを変えても同じ色を使う。
+         明るい背景でも暗い背景でも見分けられる中くらいの濃さにし、上に白い文字を置く ---- */
+  --swatch-1: #3f7fd0;
+  --swatch-2: #d9792b;
+  --swatch-3: #3f9e6e;
+  --swatch-4: #c2496b;
+  --swatch-5: #7a63c4;
+  --swatch-6: #c9a227;
+  --swatch-7: #2fa3a8;
+  --swatch-8: #b5543f;
+  --swatch-9: #7a8c3f;
+  --swatch-10: #8a6b55;
+
   --fs: 0.82;               /* 文字の大きさの倍率（設定で変更。js/ui/fontSize.js の DEFAULT_SCALE と合わせる） */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

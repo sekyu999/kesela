@@ -20,6 +20,9 @@ import {
   removeItem,
 } from '../data/shoppingRepo.js';
 import { groupByCategory } from '../domain/shelf.js';
+import { listAllRecords } from '../data/priceRepo.js';
+import { compareStores } from '../domain/pricing.js';
+import { storeBadgeHtml } from '../ui/storeBadge.js';
 import { shortage } from '../domain/product.js';
 import { openPriceSheet } from './priceSheet.js';
 import { esc } from '../lib/util.js';
@@ -70,17 +73,18 @@ export function mount(el) {
   return watch(
     async () => {
       const storeId = await getMeta(META.selectedStoreId);
-      const [items, stores, categories, products, lastBackupAt] = await Promise.all([
+      const [items, stores, categories, products, lastBackupAt, records] = await Promise.all([
         listItems(),
         listStores(),
         getOrderedCategories(storeId),
         listProducts(),
         getMeta(META.lastBackupAt),
+        listAllRecords(),
         db.storeShelfOrders.count(), // 売り場順が変わった時も描き直すため
       ]);
-      return { items, stores, categories, products, storeId, lastBackupAt };
+      return { items, stores, categories, products, storeId, lastBackupAt, records };
     },
-    ({ items, stores, categories, products, storeId, lastBackupAt }) => {
+    ({ items, stores, categories, products, storeId, lastBackupAt, records }) => {
       state = { items, categories, storeId };
 
       // バックアップの催促
@@ -108,6 +112,19 @@ export function mount(el) {
         return;
       }
 
+      // 商品ごとの最安店（「どこで買うといいか」の表示用）
+      const storeById = new Map(stores.map((s) => [s.id, s]));
+      const byProduct = new Map();
+      for (const r of records) {
+        if (!byProduct.has(r.productId)) byProduct.set(r.productId, []);
+        byProduct.get(r.productId).push(r);
+      }
+      const bestStores = new Map();
+      for (const [productId, rs] of byProduct) {
+        const cmp = compareStores(rs);
+        if (cmp.mode !== 'none') bestStores.set(productId, cmp.rows.filter((r) => r.cheapest).map((r) => r.storeId));
+      }
+
       const productById = new Map(products.map((p) => [p.id, p]));
       // 同じ売り場の中は、在庫で並べた順（手動追加の物は後ろに名前順）
       const order = (it) => productById.get(it.productId)?.sortOrder ?? 1e9;
@@ -119,7 +136,9 @@ export function mount(el) {
             (g) => `
           <section>
             <h2 class="section-title">${esc(t(g.name))}</h2>
-            <ul class="list">${g.items.map((it) => itemRowHtml(it, productById.get(it.productId))).join('')}</ul>
+            <ul class="list">${g.items
+              .map((it) => itemRowHtml(it, productById.get(it.productId), { bestStores, storeById, storeId }))
+              .join('')}</ul>
           </section>`
           )
           .join('');
@@ -131,18 +150,34 @@ export function mount(el) {
 const CHECK_SVG =
   '<svg class="check-icon" viewBox="0 0 24 24" aria-hidden="true"><circle class="check-ring" cx="12" cy="12" r="10"/><path class="check-mark" d="M7.2 12.4l3.2 3.2 6.4-6.8"/></svg>';
 
-function itemRowHtml(it, product) {
+/**
+ * リストの1行。
+ * その商品の最安店を色＋頭文字のバッジで右に出し、
+ * お店を選んでいて、そのお店が最安でない時は行を薄くする（「ここでは買わない方がいい」が分かるように）。
+ */
+function itemRowHtml(it, product, { bestStores, storeById, storeId } = {}) {
   const badges = [];
   if (it.source === 'manual' && !it.productId) badges.push(`<span class="badge badge-muted">${t('手動')}</span>`);
   if (it.source === 'health') badges.push(`<span class="badge badge-muted">${t('健康提案')}</span>`);
   if (product && shortage(product) === 0) badges.push(`<span class="badge">${t('在庫は足りています')}</span>`);
+
+  const best = (it.productId && bestStores?.get(it.productId)) || [];
+  const elsewhere = storeId && best.length && !best.includes(storeId);
+  const bestHtml = best.length
+    ? `<span class="item-best" title="${esc(t('最安のお店'))}">${best
+        .slice(0, 2)
+        .map((sid) => storeBadgeHtml(storeById.get(sid)))
+        .join('')}</span>`
+    : '';
+
   return `
-    <li class="item-row">
+    <li class="item-row ${elsewhere ? 'is-elsewhere' : ''}">
       <button type="button" class="check" data-action="buy" data-id="${it.id}" aria-label="${t('{name}を購入済みにする', { name: esc(it.name) })}">${CHECK_SVG}</button>
       <button type="button" class="item-main" data-action="edit" data-id="${it.id}">
         <span class="item-name">${esc(it.name)}</span>
         ${badges.length ? `<span class="stock-meta">${badges.join('')}</span>` : ''}
       </button>
+      ${bestHtml}
       <span class="item-qty">${it.quantity}<small>${esc(it.unit ?? '')}</small></span>
     </li>`;
 }

@@ -1,11 +1,11 @@
 // アプリの起動とタブ切替
 // URL の # 部分（#/list など）を見て、表示する画面を決める。
 import * as shopping from './screens/shopping.js';
-import * as stock from './screens/stock.js';
-import * as prices from './screens/prices.js';
+import * as stockTab from './screens/stockTab.js';
 import * as meals from './screens/meals.js';
-import * as budget from './screens/budget.js';
+import * as kakeibo from './screens/kakeibo.js';
 import * as goals from './screens/goals.js';
+import { startScreen } from './ui/startScreen.js';
 import * as settings from './screens/settings.js';
 import { db, SYNC } from './data/db.js';
 import { prepareCloudData } from './data/sync.js';
@@ -21,10 +21,10 @@ import { esc } from './lib/util.js';
  *   title           … ヘッダーに出す名前
  *   mount(el)       … el の中に画面を作る。片付け用の関数を返す（任意）
  */
-const ROUTES = { list: shopping, stock, prices, meals, budget, goals, settings };
-/** 以前の URL（#/health）で開いても食事画面を出す */
-const ALIASES = { health: 'meals' };
-const DEFAULT_ROUTE = 'list';
+const ROUTES = { budget: kakeibo, list: shopping, stock: stockTab, meals, goals, settings };
+/** 以前の URL でも開けるようにする（#/health → 食事、#/prices → 在庫タブの価格） */
+const ALIASES = { health: 'meals', prices: 'stock' };
+const DEFAULT_ROUTE = 'budget';
 
 const screenEl = document.getElementById('screen');
 const titleEl = document.getElementById('screen-title');
@@ -36,6 +36,7 @@ let cleanup = null;
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\/?/, '').split('/')[0];
+  if (raw === 'prices') stockTab.setSegment('prices');
   const key = ALIASES[raw] ?? raw;
   return key in ROUTES ? key : DEFAULT_ROUTE;
 }
@@ -95,8 +96,9 @@ async function start() {
     else if (r === 'offline') toast(t('インターネットにつながっていないため、まだ同期できていません'));
   }
 
-  // 起動時は目標の画面から（設定でオン・何か書いてある時）
-  if (await goals.shouldShowGoals()) history.replaceState(null, '', '#/goals');
+  // 起動時の画面（設定で変えられる。初期値は家計）
+  if (!location.hash && startScreen() === 'goals' && (await goals.hasNote())) history.replaceState(null, '', '#/goals');
+  else if (!location.hash) history.replaceState(null, '', `#/${DEFAULT_ROUTE}`);
   window.addEventListener('hashchange', show);
   show();
 
@@ -110,8 +112,8 @@ async function start() {
     if (!hiddenAt || Date.now() - hiddenAt < RESUME_SHOW_MS) return;
     hiddenAt = 0;
     // 入力中のシートがある時は邪魔しない
-    if (currentRoute() === 'goals' || document.querySelector('dialog.sheet[open]')) return;
-    if (await goals.shouldShowGoals()) location.hash = '#/goals';
+    if (startScreen() !== 'goals' || currentRoute() === 'goals' || document.querySelector('dialog.sheet[open]')) return;
+    if (await goals.hasNote()) location.hash = '#/goals';
   });
 
 

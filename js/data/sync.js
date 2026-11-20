@@ -1,10 +1,10 @@
 // 同期（Dexie Cloud）まわりのデータ操作。同期がオンの端末でだけ使う
 import Dexie from '../../vendor/dexie.mjs';
-import { db, SYNC, LOCAL_DB_NAME, DATA_TABLES, SCHEMA_VERSION, defaultCategoryRows } from './db.js';
+import { db, SYNC, LOCAL_DB_NAME, DATA_TABLES, SCHEMA_VERSION, defaultCategoryRows, defaultExpenseCategoryRows } from './db.js';
 import { META } from './metaRepo.js';
 
 /** 同期しない時のデータベースから引き継ぐ設定（端末ごとの物は引き継がない） */
-const CARRY_META = [META.profile, META.note, META.lastBackupAt, META.selectedStoreId];
+const CARRY_META = [META.profile, META.note, META.lastBackupAt, META.selectedStoreId, META.savingsGoal, META.fixedGeneratedMonth];
 
 /**
  * ログインした後、最初に1回呼ぶ。クラウドの最新を取り込んでから：
@@ -22,14 +22,33 @@ export async function prepareCloudData() {
     // つながらない時は何もしない（空のまま初期カテゴリを入れると、つながった後に二重になるため）
     if (!(await db.categories.count())) return 'offline';
   }
-  if (await db.categories.count()) return 'cloud';
-  if (await copyFromLocal()) return 'moved';
+  if (await db.categories.count()) {
+    await ensureExpenseCategories();
+    return 'cloud';
+  }
+  if (await copyFromLocal()) {
+    await ensureExpenseCategories();
+    return 'moved';
+  }
   await db.transaction('rw', db.categories, db.meta, async () => {
     if (await db.categories.count()) return;
     await db.categories.bulkAdd(defaultCategoryRows());
+    await db.expenseCategories.bulkAdd(defaultExpenseCategoryRows());
     await db.meta.put({ key: 'schemaVersion', value: SCHEMA_VERSION });
   });
   return 'seeded';
+}
+
+/**
+ * 家計簿のカテゴリがまだ無ければ入れる。
+ * 同期する時は、クラウドを取り込んだ後にここで入れる（版6の移行では入れない。2台目で二重になるため）
+ */
+async function ensureExpenseCategories() {
+  if (await db.expenseCategories.count()) return;
+  await db.transaction('rw', db.expenseCategories, async () => {
+    if (await db.expenseCategories.count()) return;
+    await db.expenseCategories.bulkAdd(defaultExpenseCategoryRows());
+  });
 }
 
 /** 同期前のデータベースの中身を、同期用のデータベースへ写す（元のデータベースは消さない） */

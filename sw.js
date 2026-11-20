@@ -3,7 +3,7 @@
 // そのため、ファイルを更新したときにキャッシュが原因で古い画面が出る、ということが起きにくい。
 
 // 版は node tools/release.mjs <版> で js/lib/version.js と一緒に上げる（APP_FILES もそのコマンドで作り直す）
-const CACHE = 'kesela-1.14.0';
+const CACHE = 'kesela-1.15.0';
 
 // オフラインでも開けるように最初に保存しておくファイル
 const APP_FILES = [
@@ -15,6 +15,9 @@ const APP_FILES = [
   'css/themes.css',
   'data/foods.json',
   'icons/apple-touch-icon.png',
+  'icons/favicon-16.png',
+  'icons/favicon-32.png',
+  'icons/favicon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'js/app.js',
@@ -22,8 +25,11 @@ const APP_FILES = [
   'js/content/healthRecommendations.en.js',
   'js/content/healthRecommendations.js',
   'js/data/backup.js',
+  'js/data/budgetRepo.js',
   'js/data/categoryRepo.js',
   'js/data/db.js',
+  'js/data/expenseCategoryRepo.js',
+  'js/data/fixedCostRepo.js',
   'js/data/foodDb.js',
   'js/data/groupRepo.js',
   'js/data/metaRepo.js',
@@ -36,11 +42,15 @@ const APP_FILES = [
   'js/data/storeRepo.js',
   'js/data/sync.js',
   'js/data/syncConfig.js',
+  'js/data/transactionRepo.js',
   'js/domain/backupFormat.js',
+  'js/domain/calc.js',
   'js/domain/categories.js',
   'js/domain/consumption.js',
   'js/domain/cost.js',
+  'js/domain/fixedCost.js',
   'js/domain/groups.js',
+  'js/domain/kakeibo.js',
   'js/domain/note.js',
   'js/domain/nutrition.js',
   'js/domain/plans.js',
@@ -52,6 +62,7 @@ const APP_FILES = [
   'js/i18n/en.js',
   'js/i18n/en/budget.js',
   'js/i18n/en/common.js',
+  'js/i18n/en/kakeibo.js',
   'js/i18n/en/meals.js',
   'js/i18n/en/note.js',
   'js/i18n/en/settings.js',
@@ -63,6 +74,9 @@ const APP_FILES = [
   'js/screens/goals.js',
   'js/screens/groupSheet.js',
   'js/screens/health.js',
+  'js/screens/kakeibo.js',
+  'js/screens/kakeiboSettings.js',
+  'js/screens/kakeiboSheet.js',
   'js/screens/loginSheet.js',
   'js/screens/meals.js',
   'js/screens/nutritionSheet.js',
@@ -73,6 +87,8 @@ const APP_FILES = [
   'js/screens/settings.js',
   'js/screens/shopping.js',
   'js/screens/stock.js',
+  'js/screens/stockTab.js',
+  'js/ui/calcPad.js',
   'js/ui/fontSize.js',
   'js/ui/form.js',
   'js/ui/live.js',
@@ -80,6 +96,8 @@ const APP_FILES = [
   'js/ui/moveDrag.js',
   'js/ui/sheet.js',
   'js/ui/sortable.js',
+  'js/ui/startScreen.js',
+  'js/ui/storeBadge.js',
   'js/ui/themeList.js',
   'js/ui/toast.js',
   'vendor/dexie-cloud-addon.mjs',

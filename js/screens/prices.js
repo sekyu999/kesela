@@ -16,11 +16,15 @@ import {
   countPriceRecordsOfStore,
   getOrderedCategories,
   saveShelfOrder,
+  setStoreColor,
 } from '../data/storeRepo.js';
 import { listAllRecords, listByProduct, deleteStorePrice } from '../data/priceRepo.js';
 import { compareStores, UNIT_BASE } from '../domain/pricing.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
 import { openPriceSheet } from './priceSheet.js';
+import { openProductSheet } from './productSheet.js';
+import { storeBadgeHtml, colorPickerHtml } from '../ui/storeBadge.js';
+import { PALETTE_SIZE } from '../domain/kakeibo.js';
 import { esc } from '../lib/util.js';
 import { t, money } from '../lib/i18n.js';
 
@@ -75,6 +79,9 @@ export function mount(el) {
       case 'store':
         openStoreSheet(id);
         break;
+      case 'add-product':
+        openProductSheet(undefined, { trackStock: false });
+        break;
     }
   });
 
@@ -101,6 +108,7 @@ function renderCompare(body) {
         return;
       }
 
+      const storeById = new Map(stores.map((s) => [s.id, s]));
       const storeName = new Map(stores.map((s) => [s.id, s.name]));
       const byProduct = new Map();
       for (const r of records) {
@@ -122,7 +130,9 @@ function renderCompare(body) {
         return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
           <span class="grow compare-main">
             <span class="item-name item-name-sm">${esc(p.name)}</span>
-            <span class="price-line">${t('最安')} <strong>${best.map((b) => esc(storeName.get(b.storeId) ?? t('削除された店舗'))).join(t('・'))}</strong></span>
+            <span class="price-line">${t('最安')} ${best
+              .map((b) => storeBadgeHtml(storeById.get(b.storeId) ?? { name: t('削除された店舗'), colorIndex: 0 }, { withName: true }))
+              .join('')}</span>
           </span>
           ${priceBlock(top, p)}
           <span class="note">›</span></button></li>`;
@@ -130,7 +140,9 @@ function renderCompare(body) {
 
       body.innerHTML = `
         ${withData.length ? `<section><h2 class="section-title">${t('記録あり')}</h2><ul class="list">${withData.map(rowHtml).join('')}</ul></section>` : ''}
-        ${without.length ? `<section><h2 class="section-title">${t('まだ記録がない商品')}</h2><ul class="list">${without.map(rowHtml).join('')}</ul></section>` : ''}`;
+        ${without.length ? `<section><h2 class="section-title">${t('まだ記録がない商品')}</h2><ul class="list">${without.map(rowHtml).join('')}</ul></section>` : ''}
+        <button type="button" class="btn btn-block" data-action="add-product">${t('＋ 在庫を管理しない商品を追加')}</button>
+        <p class="note">${t('在庫には入れず、価格だけ比べたい物（お菓子・外食など）を登録できます。')}</p>`;
     }
   );
 }
@@ -253,6 +265,7 @@ function renderStores(body) {
         ? `<ul class="list">${stores
             .map(
               (s) => `<li><button type="button" class="row-button" data-action="store" data-id="${s.id}">
+                ${storeBadgeHtml(s)}
                 <span class="grow">${esc(s.name)}<span class="note" style="display:block">${t('価格記録 {n}件', { n: s.records })}</span></span>
                 <span class="note">›</span></button></li>`
             )
@@ -309,6 +322,11 @@ async function openStoreSheet(storeId) {
           <p class="field-error" data-error-for="name"></p>
         </div>
       </form>
+      <section style="margin-top:18px">
+        <h3 class="section-title">${t('お店の色')}</h3>
+        <p class="note">${t('価格比較や買い物リストで、この色と頭文字で表示します。')}</p>
+        ${colorPickerHtml(store.colorIndex ?? 0, PALETTE_SIZE)}
+      </section>
       <section style="margin-top:24px">
         <h3 class="section-title">${t('売り場の順番（≡ を押さえて動かす）')}</h3>
         <ol class="list shelf-list" id="shelf"></ol>
@@ -329,6 +347,13 @@ async function openStoreSheet(storeId) {
       if (err instanceof ValidationError) showErrors(form, err.errors);
       else throw err;
     }
+  });
+
+  sheet.el.querySelector('.color-pick').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-color]');
+    if (!b) return;
+    await setStoreColor(storeId, Number(b.dataset.color));
+    sheet.el.querySelectorAll('[data-color]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
   });
 
   const shelfEl = sheet.el.querySelector('#shelf');

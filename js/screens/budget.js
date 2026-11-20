@@ -6,7 +6,9 @@ import { toast } from '../ui/toast.js';
 import { listPlans, getPlan, savePlan, deletePlan, restorePlan, setPlanMonth } from '../data/planRepo.js';
 import { makeMovable } from '../ui/moveDrag.js';
 import { ValidationError } from '../data/productRepo.js';
-import { PLAN_KINDS, monthlyTotals, groupByMonth, thisMonth } from '../domain/plans.js';
+import { PLAN_KINDS, monthlyTotals, groupByMonth, thisMonth, addMonths } from '../domain/plans.js';
+import { savingsPace, planOutlook } from '../domain/kakeibo.js';
+import { monthlySavings } from '../data/transactionRepo.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText } from '../lib/i18n.js';
 import { yearOptions, monthOptions } from '../ui/monthPick.js';
@@ -24,6 +26,7 @@ let filter = 'all';
 export function mount(el) {
   el.innerHTML = `
     <div class="stack">
+      <div id="pace"></div>
       <section class="card">
         <h2 class="card-title">${t('月ごとの見込み')}</h2>
         <ul class="month-bars" id="month-bars"></ul>
@@ -40,6 +43,7 @@ export function mount(el) {
     <button type="button" class="fab" data-action="add">${t('＋ 追加')}</button>
   `;
   const barsEl = el.querySelector('#month-bars');
+  const paceEl = el.querySelector('#pace');
   const listEl = el.querySelector('#plan-list');
   let state = null;
 
@@ -76,7 +80,15 @@ export function mount(el) {
 
   function render() {
     if (!state) return;
-    const { plans } = state;
+    const { plans, monthly } = state;
+    // 家計簿の実績から貯金ペースを出し、予定が実現できそうかを見る
+    const pace = savingsPace(monthly);
+    const current = monthly.find((m) => m.month === thisMonth())?.savings ?? 0;
+    const hasRecords = monthly.some((m) => m.count > 0);
+    const outlook = hasRecords ? planOutlook(plans, thisMonth(), pace, current) : new Map();
+    paceEl.innerHTML = hasRecords
+      ? `<p class="notice notice-pace">${t('今の貯金ペース：1か月あたり {pace}（直近3か月の実績）', { pace: money(pace) })}</p>`
+      : '';
     el.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.filter === filter)));
     const now = thisMonth();
 
@@ -113,14 +125,17 @@ export function mount(el) {
           <h2 class="section-title month-head ${g.month && g.month < now ? 'is-past' : ''}">
             <span>${monthText(g.month, now)}${g.month && g.month < now ? t('（過ぎた月）') : ''}</span><span>${money(g.total)}</span>
           </h2>
-          <ul class="list compact-list">${g.items.map(planRow).join('')}</ul>
+          <ul class="list compact-list">${g.items.map((p) => planRow(p, outlook.get(p.id))).join('')}</ul>
         </section>`
       )
       .join('');
   }
 
   return watch(
-    async () => ({ plans: await listPlans() }),
+    async () => ({
+      plans: await listPlans(),
+      monthly: await monthlySavings([thisMonth(), addMonths(thisMonth(), -1), addMonths(thisMonth(), -2)]),
+    }),
     (s) => {
       state = s;
       render();
@@ -157,8 +172,13 @@ function kindIcon(kind) {
 /** URL は http/https の時だけリンクにする（バックアップから入った値も念のため確認） */
 const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : '');
 
-function planRow(p) {
+function planRow(p, outlook) {
   const url = safeUrl(p.url);
+  const reach = outlook
+    ? outlook.reachable
+      ? `<span class="badge badge-reach">${t('届きそう')}</span>`
+      : `<span class="badge badge-short">${t('あと{n}', { n: money(outlook.short) })}</span>`
+    : '';
   return `<li class="plan-row" data-id="${p.id}">
     <span class="drag-handle" role="button" aria-label="${esc(t('{name}の月を移動', { name: p.title }))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>
     <button type="button" class="check-btn" data-action="done" data-id="${p.id}" role="checkbox" aria-checked="false"
@@ -166,7 +186,7 @@ function planRow(p) {
     <button type="button" class="row-button" data-action="edit" data-id="${p.id}">
       <span class="grow plan-main">${kindIcon(p.kind)}<span class="plan-title">${esc(p.title)}${
         p.memo ? `<span class="plan-memo">${esc(p.memo)}</span>` : ''
-      }<span class="visually-hidden">${money(p.price)}</span></span></span>
+      }${reach}<span class="visually-hidden">${money(p.price)}</span></span></span>
     </button>
     <span class="plan-side">
       <span class="plan-price" data-action="edit" data-id="${p.id}" aria-hidden="true">${money(p.price)}</span>

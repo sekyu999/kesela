@@ -9,7 +9,7 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/,
 const DIRS = [
   ['css', /\.css$/],
   ['data', /\.json$/],
-  ['icons', /\.png$/],
+  ['icons', /\.(png|svg)$/],
   ['js', /\.js$/],
   ['vendor', /\.m?js$/],
 ];

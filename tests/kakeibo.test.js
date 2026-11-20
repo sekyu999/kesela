@@ -1,0 +1,138 @@
+// 家計簿の計算（月の集計・予算・カテゴリ別・貯金ペース・達成見込み）
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  monthRange,
+  monthOf,
+  summarize,
+  resolveBudget,
+  byCategory,
+  donutSlices,
+  monthsBetween,
+  savingsPace,
+  planOutlook,
+  validateTransactionInput,
+  validateBudgetAmount,
+} from '../js/domain/kakeibo.js';
+
+const tx = (type, amount, extra = {}) => ({ type, amount, date: '2026-11-10', categoryId: 'c1', source: 'manual', ...extra });
+
+test('月の範囲は末日まで（うるう年も）', () => {
+  assert.deepEqual(monthRange('2026-11'), { from: '2026-11-01', to: '2026-11-30' });
+  assert.deepEqual(monthRange('2026-02'), { from: '2026-02-01', to: '2026-02-28' });
+  assert.deepEqual(monthRange('2028-02'), { from: '2028-02-01', to: '2028-02-29' });
+  assert.equal(monthOf('2026-11-10'), '2026-11');
+});
+
+test('貯金額は収入−支出、固定費は支出に含まれる（二重に数えない）', () => {
+  const s = summarize([
+    tx('income', 300000, { source: 'fixed' }),
+    tx('expense', 80000, { source: 'fixed' }),
+    tx('expense', 12000, { source: 'fixed' }),
+    tx('expense', 32000),
+  ]);
+  assert.equal(s.income, 300000);
+  assert.equal(s.expense, 124000);
+  assert.equal(s.fixed, 92000);
+  assert.equal(s.variable, 32000);
+  assert.equal(s.savings, 176000);
+});
+
+test('使えるお金は収入−支出−貯金目標。目標がなければ出さない', () => {
+  const rows = [tx('income', 300000), tx('expense', 120000)];
+  assert.equal(summarize(rows, { savingsGoal: 50000 }).free, 130000);
+  assert.equal(summarize(rows, { savingsGoal: 50000 }).toGoal, -130000);
+  assert.equal(summarize(rows).free, null);
+  assert.equal(summarize(rows, { savingsGoal: 0 }).free, null);
+});
+
+test('収入が1件も無いと分かる（固定収入の未登録を知らせる用）', () => {
+  assert.equal(summarize([tx('expense', 1000)]).hasIncome, false);
+  assert.equal(summarize([tx('income', 1)]).hasIncome, true);
+});
+
+test('予算残額は月予算−支出（固定費を含む総額）', () => {
+  const s = summarize([tx('expense', 80000, { source: 'fixed' }), tx('expense', 32000)], { budget: 200000 });
+  assert.equal(s.budgetLeft, 88000);
+  assert.equal(summarize([], {}).budgetLeft, null);
+});
+
+test('予算はその月の設定 → 毎月の既定 → 未設定の順', () => {
+  const budgets = [
+    { id: '1', month: null, categoryId: null, amount: 200000 },
+    { id: '2', month: '2026-11', categoryId: null, amount: 250000 },
+    { id: '3', month: null, categoryId: 'c1', amount: 40000 },
+  ];
+  assert.equal(resolveBudget(budgets, '2026-11'), 250000);
+  assert.equal(resolveBudget(budgets, '2026-12'), 200000);
+  assert.equal(resolveBudget(budgets, '2026-11', 'c1'), 40000);
+  assert.equal(resolveBudget(budgets, '2026-11', 'c2'), null);
+});
+
+test('カテゴリ別は多い順、割合は支出合計に対して', () => {
+  const cats = [
+    { id: 'c1', name: '食費', colorIndex: 0 },
+    { id: 'c2', name: '日用品', colorIndex: 1 },
+  ];
+  const rows = byCategory([tx('expense', 30000), tx('expense', 10000, { categoryId: 'c2' }), tx('income', 99999)], cats);
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.amount, Math.round(r.ratio * 100)]),
+    [
+      ['食費', 30000, 75],
+      ['日用品', 10000, 25],
+    ]
+  );
+});
+
+test('ドーナツの区切りは前の分だけずれる', () => {
+  const slices = donutSlices([{ ratio: 0.5 }, { ratio: 0.3 }, { ratio: 0.2 }]);
+  assert.deepEqual(
+    slices.map((s) => [s.length, s.offset]),
+    [
+      [50, 0],
+      [30, 50],
+      [20, 80],
+    ]
+  );
+});
+
+test('貯金ペースは新しい方から3か月の平均', () => {
+  const monthly = [
+    { month: '2026-08', savings: 100 },
+    { month: '2026-09', savings: 20000 },
+    { month: '2026-10', savings: 30000 },
+    { month: '2026-11', savings: 40000 },
+  ];
+  assert.equal(savingsPace(monthly), 30000);
+  assert.equal(savingsPace([]), null);
+  assert.equal(monthsBetween('2026-11', '2027-03'), 4);
+});
+
+test('予定は累計で見て、届くかを判定する', () => {
+  const plans = [
+    { id: 'p1', price: 20000, month: '2026-12' },
+    { id: 'p2', price: 300000, month: '2027-01' },
+  ];
+  const out = planOutlook(plans, '2026-11', 30000, 10000);
+  assert.equal(out.get('p1').reachable, true); // 10000 + 30000 ≧ 20000
+  assert.equal(out.get('p2').reachable, false); // 10000 + 30000×2 < 20000 + 300000
+  assert.equal(out.get('p2').short, 250000);
+  assert.equal(planOutlook(plans, '2026-11', null).size, 0);
+});
+
+test('記録の入力：金額は1円以上の整数、カテゴリと日付は必須', () => {
+  const base = { type: 'expense', amount: '1,280', categoryId: 'c1', date: '2026-11-20' };
+  assert.equal(validateTransactionInput(base).value.amount, 1280);
+  assert.equal(validateTransactionInput({ ...base, amount: '' }).errors.amount, '金額を入力してください');
+  assert.equal(validateTransactionInput({ ...base, amount: '0' }).ok, false);
+  assert.equal(validateTransactionInput({ ...base, amount: '1.5' }).ok, false);
+  assert.equal(validateTransactionInput({ ...base, categoryId: '' }).ok, false);
+  assert.equal(validateTransactionInput({ ...base, date: '2026-13-01' }).ok, false);
+  assert.equal(validateTransactionInput({ ...base, type: 'income' }).value.type, 'income');
+});
+
+test('予算の入力：空欄は「設定しない」', () => {
+  assert.deepEqual(validateBudgetAmount(''), { ok: true, value: null });
+  assert.deepEqual(validateBudgetAmount('200,000'), { ok: true, value: 200000 });
+  assert.equal(validateBudgetAmount('-1').ok, false);
+});

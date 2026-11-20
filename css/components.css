@@ -862,24 +862,44 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   position: sticky; top: calc(var(--header-h) + var(--safe-top)); z-index: 5;
   display: flex; gap: 6px; margin: -12px calc(var(--gap) * -1) 6px; padding: 6px var(--gap);
   background: var(--bg); border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none;
 }
+.goal-tools::-webkit-scrollbar { display: none; }
 .goal-tools[hidden] { display: none; }
 .goal-tools .chip-btn { min-height: 34px; padding: 0 12px; color: var(--text); max-width: none; }
 .goal-editor { font-size: calc(16px * var(--fs, 1)); line-height: 1.6; }
-.gb { display: flex; align-items: flex-start; gap: 8px; }
+.gb { display: flex; align-items: flex-start; gap: 6px; padding-left: calc(var(--ind, 0) * 20px); }
+/* 「≡」は普段は薄く、その行を書いている時だけはっきり出す */
+.gb .drag-handle { flex: none; width: 18px; margin-top: 2px; opacity: 0.18; }
+.gb:focus-within .drag-handle { opacity: 0.5; }
+.gb.dragging { opacity: 0.9; }
 .gb-input {
   flex: 1; min-width: 0; display: block; width: 100%; margin: 0; padding: 1px 4px; border: none; border-radius: 6px;
-  background: none; color: inherit; font: inherit; line-height: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere;
+  background: none; color: inherit; font: inherit; line-height: inherit; overflow-wrap: anywhere; white-space: pre-wrap;
 }
 .gb-input:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 1px var(--border); }
-.gb-input::placeholder { color: var(--text-sub); }
+/* 何も書いていない行の案内（contenteditable なので placeholder 属性が使えない） */
+.gb-input:empty::before { content: attr(data-placeholder); color: var(--text-sub); }
+.gb-input s { text-decoration-thickness: 1px; }
 .gb-heading { margin-top: 8px; }
 .gb-heading:first-child { margin-top: 0; }
 .gb-h1 .gb-input { font-size: calc(20px * var(--fs, 1)); font-weight: 700; line-height: 1.3; }
 .gb-h2 .gb-input, .gb-h3 .gb-input { font-size: calc(17px * var(--fs, 1)); font-weight: 700; line-height: 1.3; }
 /* 空の行は詰めて表示（書いている時は1行分） */
-.gb-text.is-blank:not(:focus-within) .gb-input { height: 6px !important; padding: 0; }
-.gb.is-strike .gb-input, .gb-todo.is-checked .gb-input { color: var(--text-sub); text-decoration: line-through; }
+.gb-text.is-blank:not(:focus-within) .gb-input { min-height: 6px; padding: 0; }
+.gb-text.is-blank:not(:focus-within) { min-height: 6px; }
+.gb-todo.is-checked .gb-input { color: var(--text-sub); text-decoration: line-through; }
+.gb-no { flex: none; min-width: 1.4em; padding-top: 1px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+
+/* 「/」で出すブロックの種類のメニュー */
+.slash-menu {
+  position: fixed; z-index: 30; display: flex; flex-direction: column; min-width: 140px; padding: 4px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
+}
+.slash-menu[hidden] { display: none; }
+.slash-menu button { min-height: 38px; padding: 0 10px; border: none; border-radius: 7px; background: none; text-align: left; }
+.slash-menu button:active { background: var(--accent-soft); }
 .gb-check { flex: none; width: 20px; height: 20px; margin: 2px 0 0 2px; accent-color: var(--accent); }
 .gb-dot { flex: none; width: 1em; padding-top: 1px; color: var(--text-sub); }
 .gb-dot::before { content: "・"; }
@@ -977,3 +997,129 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .compare-sub { font-size: var(--fz-sub); font-weight: 400; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .row-button .compare-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .row-button .compare-main > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== 家計簿（v1.15） ===== */
+.kakeibo-seg, .stock-seg { margin-bottom: 14px; }
+
+/* 月の切り替え */
+.month-nav { display: flex; align-items: center; gap: 8px; }
+.month-nav-label { flex: 1; text-align: center; font-size: calc(18px * var(--fs)); }
+.month-nav .icon-btn { font-size: calc(22px * var(--fs)); line-height: 1; }
+.month-nav .icon-btn[disabled] { opacity: 0.3; }
+.btn-small { min-height: 34px; padding: 0 10px; font-size: var(--fz-sub); white-space: nowrap; }
+
+/* 収入・支出・貯金額 */
+.kb-stats { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.kb-stats li { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: center; }
+.kb-stats span { font-size: var(--fz-sub); color: var(--text-sub); }
+.kb-stats strong { font-size: calc(18px * var(--fs)); overflow: hidden; text-overflow: ellipsis; }
+.kb-stats .is-minus strong, strong.is-minus { color: var(--danger); }
+
+/* 使えるお金・予算の帯 */
+.kb-free { margin-top: 14px; }
+.kb-free-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.kb-free-head span { font-size: var(--fz-sub); color: var(--text-sub); }
+.kb-free-head strong { font-size: calc(22px * var(--fs)); }
+.kb-free.is-over .kb-free-head strong { color: var(--danger); }
+.kb-bar { display: flex; height: 10px; margin: 8px 0 6px; border-radius: 5px; background: var(--accent-soft); overflow: hidden; }
+.kb-bar-used { background: var(--accent); }
+.kb-bar-used.is-over { background: var(--danger); }
+.kb-bar-goal { background: var(--warn-bar); }
+.kb-free-note { font-size: var(--fz-sub); color: var(--text-sub); }
+.kb-notice { margin-top: 12px; }
+
+/* 円グラフ（ドーナツ） */
+.kb-donut-wrap { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.kb-donut { flex: 0 0 104px; width: 104px; height: 104px; transform: rotate(-90deg); }
+.kb-slice { transition: none; }
+.kb-legend { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.kb-legend li { display: flex; align-items: center; gap: 7px; min-height: 22px; font-size: var(--fz-sub); }
+.kb-legend li .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb-legend-pct { color: var(--text-sub); }
+.kb-legend strong { font-size: var(--fz-sub); }
+.kb-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+@media (max-width: 374px) {
+  .kb-donut-wrap { flex-direction: column; align-items: stretch; }
+  .kb-donut { align-self: center; }
+}
+
+/* 明細の1行 */
+.kb-row .row-button { min-height: 44px; gap: 8px; }
+.kb-date { flex: none; width: 3.4em; font-size: var(--fz-sub); color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.kb-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: var(--fz-row); overflow: hidden; }
+.kb-name > * { white-space: nowrap; }
+.kb-memo { font-size: var(--fz-sub); color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; }
+.kb-amount { flex: none; font-size: var(--fz-num); font-weight: 700; font-variant-numeric: tabular-nums; }
+.kb-row.is-income .kb-amount { color: var(--accent); }
+
+/* カレンダー */
+.kb-cal-dow, .kb-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin: 0; padding: 0; list-style: none; }
+.kb-cal-dow { margin-bottom: 2px; font-size: calc(11px * var(--fs)); color: var(--text-sub); text-align: center; }
+.kb-cal-cell button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 100%; min-height: 46px; padding: 3px 1px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+}
+.kb-cal-cell.is-today button { border-color: var(--accent); }
+.kb-cal-d { font-size: calc(11px * var(--fs)); color: var(--text-sub); }
+.kb-cal-sum {
+  width: 100%; font-size: calc(10px * var(--fs)); font-weight: 600; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+  color: color-mix(in srgb, var(--text) calc(50% + var(--heat, 0%) / 2), transparent);
+}
+.kb-cal-in { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+/* カテゴリのチップ */
+.chip-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip-cat {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 20px; background: var(--surface);
+  font-size: calc(15px * var(--fs));
+}
+.chip-cat[aria-checked="true"] { border-color: var(--swatch); background: color-mix(in srgb, var(--swatch) 14%, var(--surface)); font-weight: 700; }
+.chip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--swatch, var(--border)); }
+.kb-catbudget label { display: flex; align-items: center; gap: 7px; }
+
+/* 収入・支出の切り替え、日付の並び */
+.tx-kind { margin-bottom: 14px; }
+.date-row { align-items: center; gap: 8px; }
+
+/* ===== 電卓テンキー ===== */
+.calc-display { position: relative; display: flex; align-items: center; gap: 8px; }
+.calc-expr {
+  position: absolute; top: -16px; right: 2.4em;
+  font-size: calc(12px * var(--fs)); color: var(--text-sub); font-variant-numeric: tabular-nums;
+}
+.calc-input { flex: 1; min-width: 0; text-align: right; font-size: calc(26px * var(--fs)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.calc-field { margin-top: 20px; }
+.calc-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.calc-key {
+  min-height: 46px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); font-size: calc(19px * var(--fs)); font-weight: 600;
+}
+.calc-key:active { background: var(--accent-soft); }
+.calc-op { background: var(--bg); }
+.calc-clear { grid-column: span 2; color: var(--danger); }
+.calc-eq { grid-column: span 2; border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+
+/* ===== お店の色と頭文字のバッジ（v1.15） ===== */
+.store-badge { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; }
+.store-initial {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none; width: 19px; height: 19px; border-radius: 50%;
+  background: var(--swatch, var(--border)); color: #fff;
+  font-size: calc(11px * var(--fs)); font-weight: 700; line-height: 1;
+}
+.store-badge-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.price-line .store-badge + .store-badge { margin-left: 6px; }
+
+.color-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.color-swatch { width: 34px; height: 34px; border: 2px solid transparent; border-radius: 50%; }
+.color-swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface) inset; }
+
+/* 買い物リスト：最安のお店と、ここでは買わない方がいい行 */
+.item-best { display: inline-flex; flex: none; gap: 3px; }
+.item-row.is-elsewhere .item-main, .item-row.is-elsewhere .item-qty { opacity: 0.45; }
+.notice-pace { margin-bottom: 4px; }
+.badge-reach { background: var(--accent-soft); color: var(--accent); }

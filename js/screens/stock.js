@@ -53,7 +53,9 @@ export function mount(el) {
 
   return watch(
     () => Promise.all([listCategories(), listProducts()]),
-    ([cats, products]) => {
+    ([cats, allProducts]) => {
+      // 「在庫を管理しない商品」（価格だけ記録する物）は在庫画面に出さない
+      const products = allProducts.filter((p) => p.trackStock !== false);
       const view = products;
 
       reviewEl.hidden = products.length === 0;

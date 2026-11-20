@@ -1,5 +1,5 @@
 // バックアップの書き出し・復元・初期化
-import { db, DATA_TABLES, SCHEMA_VERSION, defaultCategoryRows } from './db.js';
+import { db, DATA_TABLES, SCHEMA_VERSION, defaultCategoryRows, defaultExpenseCategoryRows } from './db.js';
 import { setMeta, getMeta, META } from './metaRepo.js';
 import { buildBackup, backupFileName } from '../domain/backupFormat.js';
 import { nowIso } from '../lib/util.js';
@@ -11,7 +11,11 @@ export async function createBackupFile() {
   await db.transaction('r', DATA_TABLES.map((name) => db.table(name)), async () => {
     for (const name of DATA_TABLES) data[name] = (await db.table(name).toArray()).map(stripCloudFields);
   });
-  const settings = { profile: await getMeta(META.profile), note: (await getMeta(META.note))?.text ?? '' };
+  const settings = {
+    profile: await getMeta(META.profile),
+    note: (await getMeta(META.note))?.text ?? '',
+    savingsGoal: await getMeta(META.savingsGoal),
+  };
   const json = JSON.stringify(buildBackup(data, nowIso(), settings), null, 2);
   return { json, filename: backupFileName() };
 }
@@ -70,10 +74,14 @@ export async function restoreBackup(backup) {
       await db.table(name).clear();
       await db.table(name).bulkAdd(backup.data[name] ?? []);
     }
+    // 家計簿を入れる前のバックアップには家計簿のカテゴリが無いので、初期カテゴリを入れ直す
+    if (!(await db.expenseCategories.count())) await db.expenseCategories.bulkAdd(defaultExpenseCategoryRows());
     await db.meta.delete(META.selectedStoreId);
+    await db.meta.delete(META.fixedGeneratedMonth);
     if (backup.settings?.profile) await db.meta.put({ key: META.profile, value: backup.settings.profile });
     // 目標メモ（v1.5 より前のバックアップには無いので、その時は今のメモを残す）
     if (typeof backup.settings?.note === 'string') await db.meta.put({ key: META.note, value: { text: backup.settings.note, updatedAt: nowIso() } });
+    if (typeof backup.settings?.savingsGoal === 'number') await db.meta.put({ key: META.savingsGoal, value: backup.settings.savingsGoal });
     await db.meta.put({ key: 'schemaVersion', value: SCHEMA_VERSION });
   });
 }
@@ -87,6 +95,7 @@ export async function resetAll() {
     await db.meta.clear();
     if (last) await db.meta.put(last);
     await db.categories.bulkAdd(defaultCategoryRows());
+    await db.expenseCategories.bulkAdd(defaultExpenseCategoryRows());
     await db.meta.put({ key: 'schemaVersion', value: SCHEMA_VERSION });
   });
 }
