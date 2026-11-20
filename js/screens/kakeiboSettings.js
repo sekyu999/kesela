@@ -23,104 +23,66 @@ import { yearOptions, monthOptions } from '../ui/monthPick.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText, monthOnlyText } from '../lib/i18n.js';
 
-/** 家計簿の設定シート */
-export async function openKakeiboSettings(month = thisMonth()) {
-  const sheet = openSheet({ title: t('家計簿の設定'), body: `<div class="stack" data-body></div>` });
+/** 貯金目標だけを決めるシート（今月タブの「使えるお金」から開く） */
+export async function openSavingsGoalSheet() {
+  const goal = await getMeta(META.savingsGoal);
+  const sheet = openSheet({
+    title: t('貯金目標'),
+    body: `
+      <form novalidate>
+        <p class="sheet-lead">${t('今月ためたい額。決めると「自由に使えるお金」が出せます。')}</p>
+        <div class="field">
+          <div class="row" style="align-items:center">
+            <input name="savingsGoal" class="input grow" inputmode="numeric" value="${goal ?? ''}"
+                   placeholder="${t('例：50000')}" autocomplete="off">
+            <span class="unit-suffix">${t('円')}</span>
+          </div>
+          <p class="field-error" data-error-for="savingsGoal"></p>
+        </div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${t('保存')}</button></div>
+      </form>`,
+  });
+  const form = sheet.el.querySelector('form');
+  bindErrorClear(form);
+  form.elements.namedItem('savingsGoal').focus();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = validateYenOrEmpty(form.elements.namedItem('savingsGoal').value);
+    if (!r.ok) {
+      showErrors(form, { savingsGoal: r.error });
+      return;
+    }
+    await setMeta(META.savingsGoal, r.value ?? 0);
+    sheet.close();
+    toast(t('保存しました'));
+  });
+  return sheet;
+}
+
+/** カテゴリの一覧シート（記録タブのチップの「編集」から開く） */
+export async function openCategoryList() {
+  const sheet = openSheet({ title: t('カテゴリ'), body: `<div data-body></div>` });
   const body = sheet.el.querySelector('[data-body]');
 
   async function render() {
-    const [categories, fixedCosts, goal] = await Promise.all([
-      listExpenseCategories(),
-      listFixedCosts(),
-      getMeta(META.savingsGoal),
-    ]);
-    const expenseCats = categories.filter((c) => c.type === 'expense');
-    const amountInput = (name, value, placeholder = '') =>
-      `<div class="row" style="align-items:center">
-        <input name="${name}" class="input grow" inputmode="numeric" value="${value == null ? '' : value}"
-               placeholder="${esc(placeholder)}" autocomplete="off">
-        <span class="unit-suffix">${t('円')}</span>
-      </div>`;
-
+    const categories = (await listExpenseCategories()).filter((c) => c.type === 'expense');
     body.innerHTML = `
-      <form novalidate data-budget-form>
-        <section>
-          <h3 class="section-title">${t('貯金目標')}</h3>
-          <p class="sheet-lead">${t('今月ためたい額。決めると「自由に使えるお金」が出せます。')}</p>
-          <div class="field">${amountInput('savingsGoal', goal ?? '', t('例：50000'))}
-            <p class="field-error" data-error-for="savingsGoal"></p></div>
-        </section>
+      <p class="sheet-lead">${t('名前と色を変えられます。≡ を押さえると並べ替えられます。並べた順に表示します。')}</p>
+      <ul class="list compact-list cat-list" data-cat-list>
+        ${categories
+          .map(
+            (c) => `<li data-id="${c.id}">
+              ${dragHandle(esc(c.name))}
+              <button type="button" class="row-button" data-cat-edit="${c.id}">
+                <span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>
+                <span class="grow">${esc(c.name)}</span><span class="note">›</span>
+              </button>
+            </li>`
+          )
+          .join('')}
+      </ul>
+      <button type="button" class="btn btn-block" data-cat-add>${t('＋ カテゴリを追加')}</button>`;
 
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
-        </div>
-      </form>
-
-      <section style="margin-top:8px">
-        <h3 class="section-title">${t('カテゴリ')}</h3>
-        <p class="sheet-lead">${t('名前と色を変えられます。≡ を押さえると並べ替えられます。並べた順に表示します。')}</p>
-        <ul class="list compact-list cat-list" data-cat-list>
-          ${expenseCats
-            .map(
-              (c) => `<li data-id="${c.id}">
-                ${dragHandle(esc(c.name))}
-                <button type="button" class="row-button" data-cat-edit="${c.id}">
-                  <span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>
-                  <span class="grow">${esc(c.name)}</span><span class="note">›</span>
-                </button>
-              </li>`
-            )
-            .join('')}
-        </ul>
-        <button type="button" class="btn btn-block btn-small" data-cat-add>${t('＋ カテゴリを追加')}</button>
-      </section>
-
-      <section style="margin-top:18px">
-        <h3 class="section-title">${t('固定費・固定収入')}</h3>
-        <p class="sheet-lead">${t('毎月決まって出入りするお金。登録するとすぐ今月の記録に入ります。収入はここだけで登録します。')}</p>
-        ${
-          fixedCosts.length
-            ? `<ul class="list compact-list">${fixedCosts
-                .map(
-                  (f) => `<li class="kb-row">
-                    <button type="button" class="row-button" data-fixed="${f.id}">
-                      <span class="kb-dot" style="background:var(--swatch-${(f.colorIndex ?? 0) + 1})"></span>
-                      <span class="grow kb-name">${esc(f.name)}${f.endMonth ? `<span class="badge badge-muted">${t('終了')}</span>` : ''}
-                        <span class="kb-memo">${[
-                          cycleLabel(f) && t(cycleLabel(f)),
-                          spreadLabel(f) && t(spreadLabel(f)),
-                          f.dayOfMonth ? t('{d}日', { d: f.dayOfMonth }) : t('月初'),
-                        ]
-                          .filter(Boolean)
-                          .join(t('・'))}</span></span>
-                      <span class="kb-amount">${f.type === 'income' ? '+' : ''}${money(monthlyAmount(f))}${
-                        monthlyAmount(f) !== f.amount ? `<small class="kb-per">${t('/月')}</small>` : ''
-                      }</span>
-                    </button>
-                  </li>`
-                )
-                .join('')}</ul>`
-            : `<div class="placeholder">${t('まだ登録がありません。')}</div>`
-        }
-        <button type="button" class="btn btn-block" data-add-fixed>${t('＋ 固定費・固定収入を追加')}</button>
-      </section>`;
-
-    const form = body.querySelector('[data-budget-form]');
-    bindErrorClear(form);
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const r = validateYenOrEmpty(form.elements.namedItem('savingsGoal').value);
-      if (!r.ok) {
-        showErrors(form, { savingsGoal: r.error });
-        return;
-      }
-      await setMeta(META.savingsGoal, r.value ?? 0);
-      toast(t('保存しました'));
-      render();
-    });
-
-    // カテゴリ
     body.querySelector('[data-cat-add]').addEventListener('click', async () => {
       const name = window.prompt(t('カテゴリ名'));
       if (!name?.trim()) return;
@@ -135,8 +97,47 @@ export async function openKakeiboSettings(month = thisMonth()) {
       b.addEventListener('click', () => openCategorySheet(b.dataset.catEdit, render))
     );
     makeSortable(body.querySelector('[data-cat-list]'), { onSort: (ids) => saveExpenseCategoryOrder(ids) });
+  }
 
-    // 固定費
+  await render();
+  return sheet;
+}
+
+/** 固定費・固定収入の一覧シート（記録タブの下から開く） */
+export async function openFixedCostList(month = thisMonth()) {
+  const sheet = openSheet({ title: t('固定費・固定収入'), body: `<div data-body></div>` });
+  const body = sheet.el.querySelector('[data-body]');
+
+  async function render() {
+    const fixedCosts = await listFixedCosts();
+    body.innerHTML = `
+      <p class="sheet-lead">${t('毎月決まって出入りするお金。登録するとすぐ今月の記録に入ります。収入はここだけで登録します。')}</p>
+      ${
+        fixedCosts.length
+          ? `<ul class="list compact-list">${fixedCosts
+              .map(
+                (f) => `<li class="kb-row">
+                  <button type="button" class="row-button" data-fixed="${f.id}">
+                    <span class="kb-dot" style="background:var(--swatch-${(f.colorIndex ?? 0) + 1})"></span>
+                    <span class="grow kb-name">${esc(f.name)}${f.endMonth ? `<span class="badge badge-muted">${t('終了')}</span>` : ''}
+                      <span class="kb-memo">${[
+                        cycleLabel(f) && t(cycleLabel(f)),
+                        spreadLabel(f) && t(spreadLabel(f)),
+                        f.dayOfMonth ? t('{d}日', { d: f.dayOfMonth }) : t('月初'),
+                      ]
+                        .filter(Boolean)
+                        .join(t('・'))}</span></span>
+                    <span class="kb-amount">${f.type === 'income' ? '+' : ''}${money(monthlyAmount(f))}${
+                      monthlyAmount(f) !== f.amount ? `<small class="kb-per">${t('/月')}</small>` : ''
+                    }</span>
+                  </button>
+                </li>`
+              )
+              .join('')}</ul>`
+          : `<div class="placeholder">${t('まだ登録がありません。')}</div>`
+      }
+      <button type="button" class="btn btn-block" data-add-fixed>${t('＋ 固定費・固定収入を追加')}</button>`;
+
     body.querySelector('[data-add-fixed]').addEventListener('click', () => openFixedCostSheet(null, month, render));
     body.querySelectorAll('[data-fixed]').forEach((b) =>
       b.addEventListener('click', () => openFixedCostSheet(b.dataset.fixed, month, render))

@@ -15,7 +15,7 @@ import { thisMonth, addMonths } from '../domain/plans.js';
 import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
 import { openTransactionSheet, quickFormHtml, bindQuickForm } from './kakeiboSheet.js';
-import { openKakeiboSettings } from './kakeiboSettings.js';
+import { openSavingsGoalSheet, openCategoryList, openFixedCostList } from './kakeiboSettings.js';
 import { todayLocal, esc } from '../lib/util.js';
 import { t, money, monthText, dateShort } from '../lib/i18n.js';
 
@@ -110,8 +110,15 @@ function mountInput(el) {
   let catKey = null;
   let quick = null;
 
-  el.innerHTML = `<div class="kb-quick" data-quick></div>`;
+  el.innerHTML = `
+    <div class="kb-quick" data-quick></div>
+    <button type="button" class="btn btn-block btn-small kb-fixed-link" data-action="fixed">${t('固定費・固定収入')}</button>`;
   const quickEl = el.querySelector('[data-quick]');
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="fixed"]')) openFixedCostList(thisMonth());
+    if (e.target.closest('[data-cat-edit-all]')) openCategoryList();
+  });
 
   return watch(
     () => listExpenseCategories(),
@@ -131,24 +138,34 @@ function mountInput(el) {
 
 function mountMonth(el) {
   let state = null;
+  let stop = null;
+
+  el.innerHTML = `<div class="stack"><div data-nav></div><div data-body></div></div>`;
+  const navEl = el.querySelector('[data-nav]');
+  const bodyEl = el.querySelector('[data-body]');
+  bindMonthNav(navEl, () => subscribe());
 
   el.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
-    if (btn?.dataset.action === 'settings') openKakeiboSettings(thisMonth());
+    if (!btn) return;
+    if (btn.dataset.action === 'goal') openSavingsGoalSheet();
+    if (btn.dataset.action === 'fixed') openFixedCostList(viewMonth);
   });
 
   function render() {
     if (!state) return;
     const { rows, categories, fixedCosts, savingsGoal } = state;
+    navEl.innerHTML = monthNavHtml(viewMonth);
     const s = summarize(rows, { savingsGoal });
-    // 円グラフは変動費だけ（固定費は毎月同じなので、何に使ったかの参考にならない）
-    const cats = byCategory(
+    // 左＝変動費だけ（何に使ったかが分かる）、右＝固定費も入れた全体
+    const varCats = byCategory(
       rows.filter((r) => !r.fixedCostId),
       categories,
       fixedCosts
     );
+    const allCats = byCategory(rows, categories, fixedCosts);
 
-    el.innerHTML = `
+    bodyEl.innerHTML = `
       <div class="stack">
         <section class="card">
           <ul class="kb-stats">
@@ -158,23 +175,28 @@ function mountMonth(el) {
           </ul>
           ${freeHtml(s)}
         </section>
-        ${cats.length ? donutHtml(donutSlices(cats), s.variable) : ''}
-        <button type="button" class="btn btn-block" data-action="settings">${t('固定費・カテゴリ・貯金目標を設定')}</button>
+        ${allCats.length ? donutsHtml(varCats, allCats, s) : ''}
+        <button type="button" class="btn btn-block" data-action="fixed">${t('固定費・固定収入')}</button>
       </div>`;
   }
 
-  return watch(
-    async () => ({
-      rows: await listByMonth(thisMonth()),
-      categories: await listExpenseCategories(),
-      fixedCosts: await listFixedCosts(),
-      savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
-    }),
-    (s) => {
-      state = s;
-      render();
-    }
-  );
+  function subscribe() {
+    stop?.();
+    stop = watch(
+      async () => ({
+        rows: await listByMonth(viewMonth),
+        categories: await listExpenseCategories(),
+        fixedCosts: await listFixedCosts(),
+        savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
+      }),
+      (s) => {
+        state = s;
+        render();
+      }
+    );
+  }
+  subscribe();
+  return () => stop?.();
 }
 
 /** 「今月自由に使えるお金」。貯金目標・収入が未設定の時は案内を出す */
@@ -183,7 +205,7 @@ function freeHtml(s) {
     return `<p class="notice kb-notice">${t('今月の収入がまだ記録されていません。給与を「固定収入」として登録してください。')}</p>`;
   }
   if (s.free === null) {
-    return `<p class="notice kb-notice">${t('貯金目標を決めると、今月自由に使えるお金が出せます。')}</p>`;
+    return `<button type="button" class="notice kb-notice notice-link" data-action="goal">${t('貯金目標を決めると、今月自由に使えるお金が出せます ›')}</button>`;
   }
   const total = Math.max(s.income, s.expense + s.savingsGoal, 1);
   const pct = (n) => `${(n / total) * 100}%`;
@@ -193,56 +215,63 @@ function freeHtml(s) {
       <span class="kb-bar-used" style="width:${pct(s.expense)}"></span>
       <span class="kb-bar-goal" style="width:${pct(s.savingsGoal)}"></span>
     </div>
-    <p class="kb-free-note">${t('収入 {income} − 使った {expense} − 貯金目標 {goal}', {
+    <button type="button" class="kb-free-note kb-goal-btn" data-action="goal">${t('収入 {income} − 使った {expense} − 貯金目標 {goal} ›', {
       income: money(s.income),
       expense: money(s.expense),
       goal: money(s.savingsGoal),
-    })}</p>
+    })}</button>
   </div>`;
 }
 
-/** 何に使ったか：円グラフ（名前を輪の中に出す）と一覧 */
-function donutHtml(slices, total) {
+/** 1つ分の円グラフ（名前を輪の中に出す） */
+function donutSvg(rows, label) {
+  const slices = donutSlices(rows);
   // 半径 15.9155 の円は一周がちょうど 100。長さをそのまま割合（％）として使える
   const R = 15.9155;
   const ring = slices
     .map(
-      (s) => `<circle class="kb-slice" cx="21" cy="21" r="${R}" fill="none" stroke="var(--swatch-${(s.colorIndex ?? 0) + 1})"
+      (s) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--swatch-${(s.colorIndex ?? 0) + 1})"
         stroke-width="10" stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"></circle>`
     )
     .join('');
-  // 輪の上に名前を置く（小さすぎる区切りは文字が入らないので出さない）
   const labels = slices
-    .filter((s) => s.ratio >= 0.1)
+    .filter((s) => s.ratio >= 0.12)
     .map((s) => {
       const mid = ((s.offset + s.length / 2) / 100) * 2 * Math.PI - Math.PI / 2;
-      const x = 21 + Math.cos(mid) * R;
-      const y = 21 + Math.sin(mid) * R;
-      return `<text class="kb-slice-label" x="${x.toFixed(2)}" y="${y.toFixed(2)}">${esc(s.name)}</text>`;
+      return `<text class="kb-slice-label" x="${(21 + Math.cos(mid) * R).toFixed(2)}" y="${(21 + Math.sin(mid) * R).toFixed(2)}">${esc(s.name)}</text>`;
     })
     .join('');
+  return `<figure class="kb-donut-one">
+    <svg class="kb-donut" viewBox="0 0 42 42" role="img" aria-label="${esc(label)}">
+      <g transform="rotate(-90 21 21)">
+        <circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--border)" stroke-width="10"></circle>
+        ${ring}
+      </g>
+      ${labels}
+    </svg>
+    <figcaption>${esc(label)}</figcaption>
+  </figure>`;
+}
+
+/** 何に使ったか：変動費だけと、固定費も入れた全体を横に並べる */
+function donutsHtml(varCats, allCats, s) {
   return `<section class="card">
     <h2 class="card-title">${t('何に使ったか')}</h2>
-    <div class="kb-donut-wrap">
-      <svg class="kb-donut" viewBox="0 0 42 42" role="img" aria-label="${esc(t('カテゴリ別の支出'))}">
-        <g transform="rotate(-90 21 21)">
-          <circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--border)" stroke-width="10"></circle>
-          ${ring}
-        </g>
-        ${labels}
-      </svg>
-      <ul class="kb-legend">
-        ${slices
-          .map(
-            (s) => `<li><span class="kb-dot" style="background:var(--swatch-${(s.colorIndex ?? 0) + 1})"></span>
-              <span class="grow">${esc(s.name)}</span>
-              <span class="kb-legend-pct">${Math.round(s.ratio * 100)}%</span>
-              <strong>${money(s.amount)}</strong></li>`
-          )
-          .join('')}
-      </ul>
+    <div class="kb-donuts">
+      ${donutSvg(varCats, t('固定費を除く'))}
+      ${donutSvg(allCats, t('固定費込み'))}
     </div>
-    <p class="kb-free-note">${t('固定費を除いた支出の合計 {total}', { total: money(total) })}</p>
+    <ul class="kb-legend">
+      ${allCats
+        .map(
+          (c) => `<li><span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>
+            <span class="grow">${esc(c.name)}${c.fixedCostId ? `<span class="badge badge-muted">${t('固定')}</span>` : ''}</span>
+            <span class="kb-legend-pct">${Math.round(c.ratio * 100)}%</span>
+            <strong>${money(c.amount)}</strong></li>`
+        )
+        .join('')}
+    </ul>
+    <p class="kb-free-note">${t('固定費を除く {variable} ／ 固定費込み {total}', { variable: money(s.variable), total: money(s.expense) })}</p>
   </section>`;
 }
 

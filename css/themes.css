@@ -65,3 +65,18 @@
   --accent: #7fb0ff; --accent-soft: #1f2f4d; --on-accent: #0b1220; --danger: #ff8a7d;
   --warn-soft: #3a3322; --warn-text: #f0c46b; --warn-bar: #d9a33a;
 }
+
+/* 夜のテーマでも、色を明るくして上の文字を紺にする（base.css の夜間と同じ考え方） */
+:root[data-theme="yoru"], :root[data-theme="kon"] {
+  --swatch-1: #5b9bd5;
+  --swatch-2: #f0a947;
+  --swatch-3: #58be9b;
+  --swatch-4: #e8775c;
+  --swatch-5: #a68bd6;
+  --swatch-6: #45becc;
+  --swatch-7: #e06a94;
+  --swatch-8: #a8be5c;
+  --swatch-9: #c99a74;
+  --swatch-10: #8295be;
+  --swatch-ink: #15202f;
+}

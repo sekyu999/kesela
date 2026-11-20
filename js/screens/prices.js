@@ -34,7 +34,7 @@ export const title = '店舗・価格';
 /** 価格比較の画面（在庫タブのセグメントから呼ばれる） */
 export function mountCompare(el) {
   el.innerHTML = `<div class="stack" id="tab-body"></div>
-    <button type="button" class="fab" data-action="fab">${t('＋ 価格を記録')}</button>`;
+    <button type="button" class="fab" data-action="fab">${t('＋ 価格')}</button>`;
   bindActions(el);
   return renderCompare(el.querySelector('#tab-body'));
 }

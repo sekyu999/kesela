@@ -1032,8 +1032,8 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-donut-wrap { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 10px; }
 .kb-donut { align-self: center; width: 180px; height: 180px; }
 .kb-slice-label {
-  fill: #fff; font-size: 3px; font-weight: 700; text-anchor: middle; dominant-baseline: middle;
-  paint-order: stroke; stroke: rgb(0 0 0 / 0.25); stroke-width: 0.6px; stroke-linejoin: round;
+  fill: var(--swatch-ink, #fff); font-size: 3.1px; font-weight: 700; text-anchor: middle; dominant-baseline: middle;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 0.5px; stroke-linejoin: round; stroke-opacity: 0.35;
 }
 .kb-slice { transition: none; }
 .kb-legend { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
@@ -1111,7 +1111,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .store-initial {
   display: inline-flex; align-items: center; justify-content: center;
   flex: none; width: 19px; height: 19px; border-radius: 50%;
-  background: var(--swatch, var(--border)); color: #fff;
+  background: var(--swatch, var(--border)); color: var(--swatch-ink, #fff);
   font-size: calc(11px * var(--fs)); font-weight: 700; line-height: 1;
 }
 .store-badge-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1189,3 +1189,17 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .icon-pick img { border-radius: 13px; display: block; }
 .icon-pick button[aria-checked="true"] { border-color: var(--accent); }
 .kb-per { margin-left: 1px; font-size: var(--fz-sub); font-weight: 400; color: var(--text-sub); }
+
+/* 円グラフを2つ並べる（固定費を除く／固定費込み） */
+.kb-donuts { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+.kb-donut-one { flex: 1 1 0; min-width: 0; margin: 0; text-align: center; }
+.kb-donut-one .kb-donut { width: 100%; max-width: 160px; height: auto; }
+.kb-donut-one figcaption { margin-top: 2px; font-size: var(--fz-sub); color: var(--text-sub); }
+.kb-legend { margin-top: 10px; }
+
+/* 貯金目標・カテゴリ編集・固定費への入口 */
+.kb-goal-btn { display: block; width: 100%; padding: 2px 0; border: none; background: none; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
+.notice-link { display: block; width: 100%; border: none; text-align: left; }
+.chip-edit { padding: 0 10px; border-style: dashed; }
+.chip-edit svg { width: 17px; height: 17px; fill: none; stroke: var(--text-sub); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kb-fixed-link { margin-top: 10px; }

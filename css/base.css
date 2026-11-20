@@ -38,6 +38,7 @@
   --swatch-8: #6e7f2e;
   --swatch-9: #8a5a3b;
   --swatch-10: #44557a;
+  --swatch-ink: #ffffff;    /* 色の上に乗せる文字（頭文字・円グラフの名前）の色 */
 
   --fs: 0.82;               /* 文字の大きさの倍率（設定で変更。js/ui/fontSize.js の DEFAULT_SCALE と合わせる） */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -53,13 +54,26 @@
     --text: #f2eee4;
     --text-sub: #9faec2;
     --border: #27374f;
-    --accent: #f6b335;      /* 暗い紺の上では黄が主役になる */
+    --accent: #f8c25c;      /* 暗い紺の上では黄が主役になる（夜は少し明るく） */
     --accent-soft: #33301f;
     --danger: #ef7a6d;
     --warn-soft: #3d3420;
-    --warn-text: #f0c46b;
-    --warn-bar: #e09b2e;
+    --warn-text: #f7d08a;
+    --warn-bar: #f3bc5a;
     --on-accent: #214b86;
+
+    /* 夜は背景が暗いので、色も明るくし、上の文字は紺にする */
+    --swatch-1: #5b9bd5;
+    --swatch-2: #f0a947;
+    --swatch-3: #58be9b;
+    --swatch-4: #e8775c;
+    --swatch-5: #a68bd6;
+    --swatch-6: #45becc;
+    --swatch-7: #e06a94;
+    --swatch-8: #a8be5c;
+    --swatch-9: #c99a74;
+    --swatch-10: #8295be;
+    --swatch-ink: #0b1b33;
   }
 }
 

@@ -192,6 +192,13 @@ export default {
   '請求が来る月にだけ{total}を入れます。「いつから」の月が基準です': 'Records {total} only in the billing months, counted from the starting month',
   '水道代のように隔月の物は、ここで間隔を選びます。': 'For things paid every other month, such as water, choose the interval here.',
   '固定費・カテゴリ・貯金目標を設定': 'Set fixed costs, categories and savings goal',
+  固定費を除く: 'Excluding fixed',
+  固定費込み: 'Including fixed',
+  '固定費を除く {variable} ／ 固定費込み {total}': 'Excluding fixed {variable} / including fixed {total}',
+  '収入 {income} − 使った {expense} − 貯金目標 {goal} ›': 'Income {income} − spent {expense} − savings goal {goal} ›',
+  '貯金目標を決めると、今月自由に使えるお金が出せます ›': 'Set a savings goal to see what you are free to spend ›',
+  カテゴリを編集: 'Edit categories',
+  '＋ 価格': '+ Price',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

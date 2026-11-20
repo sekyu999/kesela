@@ -70,8 +70,12 @@ export function bindQuickForm(root, categories) {
   const catsEl = form.querySelector('[data-cats]');
 
   dateInput.value = todayLocal();
-  // 並べ替えはしない（設定で並べた順のまま出す）
-  catsEl.innerHTML = chipsHtml(categories.filter((c) => c.type === 'expense'), '');
+  // 並べ替えはしない（設定で並べた順のまま出す）。最後にカテゴリを直すボタンを置く
+  catsEl.innerHTML =
+    chipsHtml(categories.filter((c) => c.type === 'expense'), '') +
+    `<button type="button" class="chip-cat chip-edit" data-cat-edit-all aria-label="${esc(t('カテゴリを編集'))}">
+       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
+     </button>`;
 
   form.addEventListener('click', (e) => {
     const cat = e.target.closest('[data-cat]');
