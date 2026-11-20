@@ -12,8 +12,8 @@ const SEGMENTS = [
   { key: 'stores', label: 'お店' },
 ];
 
-/** 画面を離れても覚えておく */
-let segment = 'stock';
+/** 画面を離れても覚えておく。開いた時はいちばん左から */
+let segment = SEGMENTS[0].key;
 
 /** ほかの画面や URL（#/prices）から切り替える */
 export function setSegment(key) {

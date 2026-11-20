@@ -29,8 +29,8 @@ const SEGMENTS = [
   { key: 'plans', label: '予定' },
 ];
 
-/** 画面を離れても覚えておく */
-let segment = 'month';
+/** 画面を離れても覚えておく。開いた時はいちばん左の「記録」から */
+let segment = SEGMENTS[0].key;
 let viewMonth = null;
 
 /** 下のタブで「家計」をもう一度押した時は、いちばん左のセグメントに戻す */
