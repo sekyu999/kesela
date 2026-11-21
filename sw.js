@@ -3,7 +3,7 @@
 // そのため、ファイルを更新したときにキャッシュが原因で古い画面が出る、ということが起きにくい。
 
 // 版は node tools/release.mjs <版> で js/lib/version.js と一緒に上げる（APP_FILES もそのコマンドで作り直す）
-const CACHE = 'kesela-1.17.0';
+const CACHE = 'kesela-1.17.1';
 
 // オフラインでも開けるように最初に保存しておくファイル
 const APP_FILES = [

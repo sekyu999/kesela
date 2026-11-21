@@ -211,7 +211,7 @@ html.sheet-open { overflow: hidden; }
 [aria-invalid="true"] { border-color: var(--danger); }
 .field-error { color: var(--danger); font-size: calc(14px * var(--fs, 1)); margin-top: 4px; }
 .field-error:empty { display: none; }
-.row { display: flex; gap: 8px; }
+.row { display: flex; align-items: center; gap: 8px; }
 .row > .grow { flex: 1; min-width: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .chip {
@@ -647,7 +647,6 @@ html.sheet-open { overflow: hidden; }
 .cost-main { flex-wrap: wrap; gap: 6px 18px; }
 .cost-big { font-size: calc(24px * var(--fs, 1)); }
 .meal-heading { margin: 10px 0 4px; }
-.check-row input { margin-right: 4px; }
 .row-fields + .field { margin-top: 18px; }
 .meal-grid + .field { margin-top: 18px; }
 
@@ -1032,8 +1031,8 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-donut-wrap { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 10px; }
 .kb-donut { align-self: center; width: 180px; height: 180px; }
 .kb-slice-label {
-  fill: var(--swatch-ink, #fff); font-size: 3.1px; font-weight: 700; text-anchor: middle; dominant-baseline: middle;
-  paint-order: stroke; stroke: var(--surface); stroke-width: 0.5px; stroke-linejoin: round; stroke-opacity: 0.35;
+  fill: #fff; font-size: 3.1px; font-weight: 700; text-anchor: middle; dominant-baseline: middle;
+  paint-order: stroke; stroke: rgb(0 0 0 / 0.3); stroke-width: 0.5px; stroke-linejoin: round;
 }
 .kb-slice { transition: none; }
 .kb-legend { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
@@ -1049,7 +1048,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 /* 明細の1行 */
 .kb-row .row-button { min-height: 44px; gap: 8px; }
 .kb-date { flex: none; width: 3.4em; font-size: var(--fz-sub); color: var(--text-sub); font-variant-numeric: tabular-nums; }
-.kb-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: var(--fz-row); overflow: hidden; }
+.kb-name { display: flex; flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; font-size: var(--fz-row); overflow: hidden; }
 .kb-name > * { white-space: nowrap; }
 .kb-memo { font-size: var(--fz-sub); color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; }
 .kb-amount { flex: none; font-size: var(--fz-num); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1111,13 +1110,13 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .store-initial {
   display: inline-flex; align-items: center; justify-content: center;
   flex: none; width: 19px; height: 19px; border-radius: 50%;
-  background: var(--swatch, var(--border)); color: var(--swatch-ink, #fff);
+  background: var(--swatch, var(--border)); color: #fff;
   font-size: calc(11px * var(--fs)); font-weight: 700; line-height: 1;
 }
 .store-badge-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .price-line .store-badge + .store-badge { margin-left: 6px; }
 
-.color-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.color-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .color-swatch { width: 34px; height: 34px; border: 2px solid transparent; border-radius: 50%; }
 .color-swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface) inset; }
 
@@ -1182,7 +1181,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .quick-actions { display: block; margin-top: 16px; }
 
 /* アプリのアイコンを選ぶ */
-.icon-pick { display: flex; gap: 12px; }
+.icon-pick { display: flex; align-items: center; gap: 12px; }
 .icon-pick button {
   padding: 4px; border: 2px solid transparent; border-radius: 16px; background: none; line-height: 0;
 }
@@ -1201,5 +1200,14 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-goal-btn { display: block; width: 100%; padding: 2px 0; border: none; background: none; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
 .notice-link { display: block; width: 100%; border: none; text-align: left; }
 .chip-edit { padding: 0 10px; border-style: dashed; }
-.chip-edit svg { width: 17px; height: 17px; fill: none; stroke: var(--text-sub); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.chip-edit svg { display: block; width: 17px; height: 17px; fill: none; stroke: var(--text-sub); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .kb-fixed-link { margin-top: 10px; }
+
+/* 横並びの水平ぞろえ（v1.17.1 で見直し）
+   入力欄・ボタン・単位・チェックなど、高さの違う部品が並ぶところを中央でそろえる */
+.field .row, .quick-row, .date-row, .month-pick, .stepper, .kb-day-head, .kb-free-head { align-items: center; }
+.list > li > label.check-row { width: 100%; }
+.chips, .chip-grid { align-items: center; }
+.kb-stats li { justify-content: center; }
+.badge { align-self: center; }
+.drag-handle svg { display: block; }

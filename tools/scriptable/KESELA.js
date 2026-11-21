@@ -186,9 +186,26 @@ const WARN = new Color('#d99a1e');
  * 貯金目標があれば「収入 − 支出 − 貯金目標」、無ければ予算の残り。どちらも無ければ null
  */
 function spendableOf(data) {
-  if (data.free !== null && data.hasIncome) return { value: data.free, label: '使っていい' };
-  if (data.budgetLeft !== null) return { value: data.budgetLeft, label: '予算の残り' };
+  if (data.free !== null && data.hasIncome) return { value: data.free, label: '余り' };
   return { value: null, label: !data.hasIncome ? '収入が未記録' : '貯金目標が未設定' };
+}
+
+/** 今日の日付「11月22日」 */
+function todayText() {
+  const d = new Date();
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+/** 目盛り1本ぶんの帯（割合を 0〜1 で渡す） */
+function addBar(stack, ratio, width, height, color) {
+  const bar = stack.addStack();
+  bar.size = new Size(width, height);
+  bar.cornerRadius = height / 2;
+  bar.backgroundColor = Color.dynamic(new Color('#e4f1e8'), new Color('#23382b'));
+  const fill = bar.addStack();
+  fill.size = new Size(Math.max(2, Math.min(width, ratio * width)), height);
+  fill.backgroundColor = color;
+  bar.addSpacer();
 }
 
 /**
@@ -250,7 +267,7 @@ function buildWidget(data, family, note) {
   }
   const lock = spendableOf(data);
 
-  // ロック画面（丸）：使っていい額とあと何日
+  // ロック画面（丸）：余りとあと何日
   if (family === 'accessoryCircular') {
     w.addAccessoryWidgetBackground = true;
     const t = w.addText(lock.value === null ? '—' : yen(lock.value).replace('円', ''));
@@ -262,13 +279,12 @@ function buildWidget(data, family, note) {
     s.centerAlignText();
     return w;
   }
-  // ロック画面（横長）：使っていい額・あと何日・1日あたり
+  // ロック画面（横長）：余りと支出、あと何日
   if (family === 'accessoryRectangular') {
     const h = w.addText(lock.value === null ? lock.label : `${lock.label} ${yen(lock.value)}`);
     h.font = Font.boldSystemFont(13);
     h.lineLimit = 1;
-    const per = lock.value === null ? null : Math.max(0, Math.round(lock.value / Math.max(1, data.daysLeft)));
-    const s = w.addText(per === null ? `支出 ${yen(data.expense)}` : `あと${data.daysLeft}日・1日 ${yen(per)}`);
+    const s = w.addText(`${todayText()}・支出 ${yen(data.expense)}・あと${data.daysLeft}日`);
     s.font = Font.systemFont(12);
     s.lineLimit = 1;
     return w;
@@ -283,21 +299,25 @@ function buildWidget(data, family, note) {
   w.backgroundColor = BG;
   w.setPadding(12, 14, 10, 14);
   const sp = spendableOf(data);
-  const perDay = sp.value === null ? null : Math.max(0, Math.round(sp.value / Math.max(1, data.daysLeft)));
+
+  const barWidth = family === 'small' ? 128 : 300;
 
   const head = w.addStack();
   head.centerAlignContent();
-  const title = head.addText('今月のお金');
+  const title = head.addText(todayText());
   title.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
   title.textColor = ACCENT;
   head.addSpacer();
   const left = head.addText(`あと${data.daysLeft}日`);
-  left.font = Font.boldSystemFont(family === 'small' ? 12 : 13);
+  left.font = Font.systemFont(family === 'small' ? 11 : 12);
   left.textColor = SUB;
+  w.addSpacer(4);
+  // 今月がどこまで来たかも、お金と同じように帯で出す
+  addBar(w, (data.day - 1) / data.daysInMonth, barWidth, 4, SUB);
 
-  w.addSpacer(family === 'small' ? 6 : 8);
+  w.addSpacer(family === 'small' ? 7 : 9);
 
-  // いちばん大きく出すのは「使っていい額」
+  // いちばん大きく出すのは「余り」
   const big = w.addText(sp.value === null ? sp.label : yen(sp.value));
   big.font = Font.boldSystemFont(family === 'small' ? 22 : 26);
   big.textColor = sp.value !== null && sp.value < 0 ? new Color('#b4382c') : TEXT;
@@ -307,29 +327,15 @@ function buildWidget(data, family, note) {
   cap.font = Font.systemFont(family === 'small' ? 10 : 11);
   cap.textColor = SUB;
 
-  w.addSpacer(family === 'small' ? 7 : 9);
-  const { over } = addPaceBar(w, data, family === 'small' ? 128 : 300, 8);
+  w.addSpacer(6);
+  addPaceBar(w, data, barWidth, 8);
   w.addSpacer(5);
 
-  const line = w.addStack();
-  const spent = line.addText(`使った ${yen(data.expense)}`);
+  const spent = w.addText(`支出 ${yen(data.expense)}`);
   spent.font = Font.systemFont(family === 'small' ? 10 : 12);
   spent.textColor = TEXT;
   spent.lineLimit = 1;
   spent.minimumScaleFactor = 0.6;
-  if (family !== 'small' && perDay !== null) {
-    line.addSpacer();
-    const pd = line.addText(`1日あたり ${yen(perDay)}`);
-    pd.font = Font.boldSystemFont(12);
-    pd.textColor = over ? WARN : ACCENT;
-    pd.lineLimit = 1;
-  }
-  if (family === 'small' && perDay !== null) {
-    const pd = w.addText(`1日 ${yen(perDay)}`);
-    pd.font = Font.boldSystemFont(11);
-    pd.textColor = over ? WARN : ACCENT;
-    pd.lineLimit = 1;
-  }
 
   if (family === 'large') {
     w.addSpacer(10);
@@ -410,7 +416,7 @@ if (config.runsInWidget) {
     a.message = error
       ? String(error.message ?? error)
       : `${data.month}\n収入 ${yen(data.income)}\n支出 ${yen(data.expense)}\n貯金 ${yen(data.savings)}\n` +
-        `使えるお金 ${data.free === null ? '（貯金目標が未設定）' : yen(data.free)}` +
+        `余り ${data.free === null ? '（貯金目標が未設定）' : yen(data.free)}` +
         (data.pending ? `\n※ 固定費 ${data.pending}件が未反映（アプリを開くと入ります）` : '');
     a.addAction('OK');
     await a.presentAlert();

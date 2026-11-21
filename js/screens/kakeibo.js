@@ -256,7 +256,6 @@ function donutSvg(rows, label) {
 /** 何に使ったか：変動費だけと、固定費も入れた全体を横に並べる */
 function donutsHtml(varCats, allCats, s) {
   return `<section class="card">
-    <h2 class="card-title">${t('何に使ったか')}</h2>
     <div class="kb-donuts">
       ${donutSvg(varCats, t('固定費を除く'))}
       ${donutSvg(allCats, t('固定費込み'))}

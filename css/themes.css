@@ -66,17 +66,16 @@
   --warn-soft: #3a3322; --warn-text: #f0c46b; --warn-bar: #d9a33a;
 }
 
-/* 夜のテーマでも、色を明るくして上の文字を紺にする（base.css の夜間と同じ考え方） */
+/* 夜のテーマでも、背景が暗いぶん色を少し明るくする（文字は白のまま。base.css の夜間と同じ） */
 :root[data-theme="yoru"], :root[data-theme="kon"] {
-  --swatch-1: #5b9bd5;
-  --swatch-2: #f0a947;
-  --swatch-3: #58be9b;
-  --swatch-4: #e8775c;
-  --swatch-5: #a68bd6;
-  --swatch-6: #45becc;
-  --swatch-7: #e06a94;
-  --swatch-8: #a8be5c;
-  --swatch-9: #c99a74;
-  --swatch-10: #8295be;
-  --swatch-ink: #15202f;
+  --swatch-1: #3f82c4;
+  --swatch-2: #c07d1e;
+  --swatch-3: #3a9c7d;
+  --swatch-4: #cd5f45;
+  --swatch-5: #8b74c4;
+  --swatch-6: #1f9aa8;
+  --swatch-7: #c35479;
+  --swatch-8: #7f9138;
+  --swatch-9: #a87f58;
+  --swatch-10: #6b7da8;
 }
