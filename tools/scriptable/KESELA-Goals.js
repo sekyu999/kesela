@@ -87,8 +87,20 @@ const thisMonth = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-/** 行の中の **太字** ~~打ち消し~~ の記号は、ウィジェットでは外して表示する */
-const plain = (s) => String(s ?? '').replaceAll('**', '').replaceAll('~~', '');
+// ウィジェットの文字には下線や打ち消しの指定が無いため、打ち消しは
+// 1文字ずつに「結合用の横線」（U+0336）を付けて線が引かれて見えるようにする
+const OVERLAY = '\u0336';
+const strikeText = (s) =>
+  [...String(s ?? '').replaceAll(OVERLAY, '')].map((ch) => ch + OVERLAY).join('');
+
+/**
+ * 行の中の **太字** ~~打ち消し~~ を、ウィジェットで出せる形にする。
+ * 太字は記号を外すだけ（1つの文字列の中で太さを混ぜられないため）、打ち消しは線を引く
+ */
+const plain = (s) =>
+  String(s ?? '')
+    .replaceAll('**', '')
+    .replace(/~~([^~]+)~~/g, (_, t) => strikeText(t));
 
 /**
  * 目標メモ（Markdown）を、ウィジェットに出す行に変える。
@@ -187,7 +199,7 @@ function buildWidget(data, family, note) {
   }
   if (family === 'accessoryRectangular') {
     for (const l of lines.slice(0, LIMITS.accessoryRectangular)) {
-      const t = w.addText(l.type === 'todo' ? `${l.checked ? '☑' : '☐'} ${l.text}` : l.text);
+      const t = w.addText(l.type === 'todo' ? `${l.checked ? '☑' : '☐'} ${l.checked ? strikeText(l.text) : l.text}` : l.text);
       t.font = l.type === 'heading' ? Font.boldSystemFont(13) : Font.systemFont(12);
       t.lineLimit = 1;
     }
@@ -219,7 +231,7 @@ function buildWidget(data, family, note) {
       const box = row.addText(l.checked ? '☑ ' : '☐ ');
       box.font = Font.systemFont(family === 'small' ? 12 : 13);
       box.textColor = l.checked ? SUB : ACCENT;
-      const n = row.addText(l.text);
+      const n = row.addText(l.checked ? strikeText(l.text) : l.text);
       n.font = Font.systemFont(family === 'small' ? 12 : 13);
       n.textColor = l.checked ? SUB : TEXT;
       n.lineLimit = 1;
