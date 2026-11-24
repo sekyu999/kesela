@@ -211,7 +211,7 @@ async function openPlanSheet(id, defaultKind = 'buy') {
             <select id="f-year" name="year" class="select" aria-label="${t('年')}">${yearOptions(v.month)}</select>
             <select name="mon" class="select" aria-label="${t('月')}">${monthOptions(v.month)}</select>
           </div>
-          <label class="check-row" style="margin-top:6px"><input type="checkbox" name="undecided" value="1" ${v.month ? '' : 'checked'}>${t('未定')}</label>
+          <label class="check-row check-after"><input type="checkbox" name="undecided" value="1" ${v.month ? '' : 'checked'}>${t('未定')}</label>
           <p class="field-error" data-error-for="month"></p>
         </div>
         <div class="field">

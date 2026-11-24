@@ -191,7 +191,8 @@ html.sheet-open { overflow: hidden; }
 }
 
 /* ===== フォーム ===== */
-.field + .field { margin-top: 18px; }
+.field { margin-top: 18px; }
+.field:first-child, form > .field:first-of-type { margin-top: 0; }
 .field label, .field .label {
   display: block;
   margin-bottom: 6px;
@@ -603,8 +604,15 @@ html.sheet-open { overflow: hidden; }
 .row-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
 .row-fields .field { margin-top: 0 !important; }
 .row-fields .input { width: 100% !important; min-width: 0; }
-.check-row { display: flex; align-items: center; gap: 10px; min-height: 40px; font-weight: 400 !important; }
+.check-row {
+  display: flex; align-items: center; gap: 10px;
+  min-height: var(--tap); margin: 0 !important; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  font-weight: 400 !important; cursor: pointer;
+}
 .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; margin: 0; }
+/* 一覧の中のチェックは、枠を付けずに行になじませる */
+.list .check-row { border: none; border-radius: 0; background: none; padding: 0; min-height: 40px; }
 .body-preview { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--bg); line-height: 1.8; }
 .body-preview:empty { display: none; }
 .member-list > li { padding-top: 4px !important; padding-bottom: 4px !important; }
@@ -998,7 +1006,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .row-button .compare-main > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ===== 家計簿（v1.15） ===== */
-.kakeibo-seg, .stock-seg { margin-bottom: 14px; }
+.kakeibo-seg, .shop-seg { margin-bottom: 14px; }
 
 /* 月の切り替え */
 .month-nav { display: flex; align-items: center; gap: 8px; }
@@ -1197,8 +1205,6 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-legend { margin-top: 10px; }
 
 /* 貯金目標・カテゴリ編集・固定費への入口 */
-.kb-goal-btn { display: block; width: 100%; padding: 2px 0; border: none; background: none; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
-.notice-link { display: block; width: 100%; border: none; text-align: left; }
 .chip-edit { padding: 0 10px; border-style: dashed; }
 .chip-edit svg { display: block; width: 17px; height: 17px; fill: none; stroke: var(--text-sub); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .kb-fixed-link { margin-top: 10px; }
@@ -1211,3 +1217,7 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-stats li { justify-content: center; }
 .badge { align-self: center; }
 .drag-handle svg { display: block; }
+
+/* チェックのすぐ下に続く部品は、少しだけ間を空ける */
+.check-after { margin-top: 8px; }
+.kb-links { gap: 8px; }

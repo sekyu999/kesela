@@ -25,6 +25,7 @@ import { compareStores } from '../domain/pricing.js';
 import { storeBadgeHtml } from '../ui/storeBadge.js';
 import { shortage } from '../domain/product.js';
 import { openPriceSheet } from './priceSheet.js';
+import { openProductPriceSheet } from './prices.js';
 import { esc } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
@@ -213,6 +214,7 @@ function openItemSheet(item, state) {
       }
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
+        ${item.productId ? `<button type="button" class="btn btn-block" data-prices>${t('お店ごとの価格を見る')}</button>` : ''}
         ${item.productId ? `<button type="button" class="btn btn-block" data-price>${t('価格を記録')}</button>` : ''}
         <button type="button" class="btn-danger-text" data-remove>${t('今回は買わない（リストから削除）')}</button>
       </div>
@@ -226,6 +228,10 @@ function openItemSheet(item, state) {
     const v = formValues(form);
     await updateItem(item.id, isTemp ? v : { quantity: v.quantity });
     sheet.close();
+  });
+  form.querySelector('[data-prices]')?.addEventListener('click', () => {
+    sheet.close();
+    openProductPriceSheet(item.productId);
   });
   form.querySelector('[data-price]')?.addEventListener('click', () => {
     sheet.close();

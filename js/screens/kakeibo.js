@@ -176,7 +176,10 @@ function mountMonth(el) {
           ${freeHtml(s)}
         </section>
         ${allCats.length ? donutsHtml(varCats, allCats, s) : ''}
-        <button type="button" class="btn btn-block" data-action="fixed">${t('固定費・固定収入')}</button>
+        <div class="row kb-links">
+          <button type="button" class="btn grow" data-action="fixed">${t('固定費・固定収入')}</button>
+          <button type="button" class="btn grow" data-action="goal">${t('貯金目標')}</button>
+        </div>
       </div>`;
   }
 
@@ -205,7 +208,7 @@ function freeHtml(s) {
     return `<p class="notice kb-notice">${t('今月の収入がまだ記録されていません。給与を「固定収入」として登録してください。')}</p>`;
   }
   if (s.free === null) {
-    return `<button type="button" class="notice kb-notice notice-link" data-action="goal">${t('貯金目標を決めると、今月自由に使えるお金が出せます ›')}</button>`;
+    return `<p class="notice kb-notice">${t('下の「貯金目標」を決めると、今月自由に使えるお金が出せます。')}</p>`;
   }
   const total = Math.max(s.income, s.expense + s.savingsGoal, 1);
   const pct = (n) => `${(n / total) * 100}%`;
@@ -215,12 +218,15 @@ function freeHtml(s) {
       <span class="kb-bar-used" style="width:${pct(s.expense)}"></span>
       <span class="kb-bar-goal" style="width:${pct(s.savingsGoal)}"></span>
     </div>
-    <button type="button" class="kb-free-note kb-goal-btn" data-action="goal">${t('収入 {income} − 使った {expense} − 貯金目標 {goal} ›', {
-      income: money(s.income),
-      expense: money(s.expense),
-      goal: money(s.savingsGoal),
-    })}</button>
   </div>`;
+}
+
+/**
+ * 区切りの色。固定費は、同じ色番号のカテゴリと混ざらないように暗くする
+ */
+function sliceColor(row) {
+  const base = `var(--swatch-${(row.colorIndex ?? 0) + 1})`;
+  return row.fixedCostId ? `color-mix(in srgb, ${base} 58%, #000)` : base;
 }
 
 /** 1つ分の円グラフ（名前を輪の中に出す） */
@@ -230,7 +236,7 @@ function donutSvg(rows, label) {
   const R = 15.9155;
   const ring = slices
     .map(
-      (s) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--swatch-${(s.colorIndex ?? 0) + 1})"
+      (s) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${sliceColor(s)}"
         stroke-width="10" stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"></circle>`
     )
     .join('');
@@ -263,7 +269,7 @@ function donutsHtml(varCats, allCats, s) {
     <ul class="kb-legend">
       ${allCats
         .map(
-          (c) => `<li><span class="kb-dot" style="background:var(--swatch-${(c.colorIndex ?? 0) + 1})"></span>
+          (c) => `<li><span class="kb-dot" style="background:${sliceColor(c)}"></span>
             <span class="grow">${esc(c.name)}${c.fixedCostId ? `<span class="badge badge-muted">${t('固定')}</span>` : ''}</span>
             <span class="kb-legend-pct">${Math.round(c.ratio * 100)}%</span>
             <strong>${money(c.amount)}</strong></li>`

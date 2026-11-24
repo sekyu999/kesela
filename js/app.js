@@ -1,7 +1,7 @@
 // アプリの起動とタブ切替
 // URL の # 部分（#/list など）を見て、表示する画面を決める。
-import * as shopping from './screens/shopping.js';
-import * as stockTab from './screens/stockTab.js';
+import * as shoppingTab from './screens/shoppingTab.js';
+import * as stock from './screens/stock.js';
 import * as meals from './screens/meals.js';
 import * as kakeibo from './screens/kakeibo.js';
 import * as goals from './screens/goals.js';
@@ -22,9 +22,9 @@ import { esc } from './lib/util.js';
  *   title           … ヘッダーに出す名前
  *   mount(el)       … el の中に画面を作る。片付け用の関数を返す（任意）
  */
-const ROUTES = { budget: kakeibo, list: shopping, stock: stockTab, meals, goals, settings };
-/** 以前の URL でも開けるようにする（#/health → 食事、#/prices → 在庫タブの価格） */
-const ALIASES = { health: 'meals', prices: 'stock', stores: 'stock' };
+const ROUTES = { budget: kakeibo, list: shoppingTab, stock, meals, goals, settings };
+/** 以前の URL でも開けるようにする（#/health → 食事、#/prices → リストタブの価格） */
+const ALIASES = { health: 'meals', prices: 'list', stores: 'list' };
 const DEFAULT_ROUTE = 'budget';
 
 const screenEl = document.getElementById('screen');
@@ -37,7 +37,7 @@ let cleanup = null;
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\/?/, '').split('/')[0];
-  if (raw === 'prices' || raw === 'stores') stockTab.setSegment(raw);
+  if (raw === 'prices' || raw === 'stores') shoppingTab.setSegment(raw);
   const key = ALIASES[raw] ?? raw;
   return key in ROUTES ? key : DEFAULT_ROUTE;
 }

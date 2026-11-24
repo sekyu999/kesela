@@ -20,7 +20,7 @@ export function mount(el) {
     <div class="stack">
       <div id="stock-groups" class="stack"></div>
       <div id="review-done" hidden>
-        <button type="button" class="btn btn-primary btn-block" data-action="review-done">${t('見直し完了 → 買い物リストを更新')}</button>
+        <button type="button" class="btn btn-primary btn-block" data-action="review-done">${t('買い物リストを更新')}</button>
       </div>
     </div>
     <button type="button" class="fab" data-action="add">${t('＋ 商品')}</button>

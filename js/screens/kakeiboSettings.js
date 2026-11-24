@@ -234,7 +234,7 @@ export async function openFixedCostSheet(id, month, onSaved) {
         </div>
         <div class="field">
           <label class="check-row"><input type="checkbox" name="ended" value="1" ${v.endMonth ? 'checked' : ''}>${t('やめた（この月まで）')}</label>
-          <div class="row month-pick" data-end ${v.endMonth ? '' : 'hidden'}>
+          <div class="row month-pick check-after" data-end ${v.endMonth ? '' : 'hidden'}>
             <select name="endYear" class="select" aria-label="${t('年')}">${yearOptions(v.endMonth ?? thisMonth())}</select>
             <select name="endMon" class="select" aria-label="${t('月')}">${monthOptions(v.endMonth ?? thisMonth())}</select>
           </div>

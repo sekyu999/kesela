@@ -91,7 +91,7 @@ function renderCompare(body) {
         return;
       }
       if (products.length === 0) {
-        body.innerHTML = `<div class="placeholder">${t('「在庫」タブで商品を登録すると、ここで価格を比べられます。')}</div>`;
+        body.innerHTML = `<div class="placeholder">${t('「在庫」タブで商品を登録するか、右下の「＋ 価格」から追加すると、ここで価格を比べられます。')}</div>`;
         return;
       }
 
@@ -137,8 +137,8 @@ function renderCompare(body) {
   );
 }
 
-/** 商品の価格詳細（店舗別比較＋履歴） */
-async function openProductPriceSheet(productId) {
+/** 商品の価格詳細（店舗ごとの価格。買い物リストからも開く） */
+export async function openProductPriceSheet(productId) {
   const product = await getProduct(productId);
   if (!product) return;
   let stop = null;

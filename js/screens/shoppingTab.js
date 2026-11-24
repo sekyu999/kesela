@@ -1,13 +1,13 @@
-// 在庫タブ：上のセグメントで「在庫」と「価格」を切り替える
-// どちらも対象は同じ商品なので、1つのタブにまとめる（v1.15 のナビ再編）
-import * as stock from './stock.js';
+// 買い物リストのタブ：上のセグメントで「リスト」「価格」「お店」を切り替える
+// 買い物に関わるもの（買う物・いくらか・どこで）を1つのタブにまとめる（v1.18）
+import * as shopping from './shopping.js';
 import * as prices from './prices.js';
 import { t } from '../lib/i18n.js';
 
-export const title = '在庫';
+export const title = '買い物';
 
 const SEGMENTS = [
-  { key: 'stock', label: '在庫' },
+  { key: 'list', label: 'リスト' },
   { key: 'prices', label: '価格' },
   { key: 'stores', label: 'お店' },
 ];
@@ -20,20 +20,20 @@ export function setSegment(key) {
   if (SEGMENTS.some((s) => s.key === key)) segment = key;
 }
 
-/** 下のタブで「在庫」をもう一度押した時は、いちばん左のセグメントに戻す */
+/** 下のタブで「リスト」をもう一度押した時は、いちばん左に戻す */
 export function resetSegment() {
   segment = SEGMENTS[0].key;
 }
 
 export function mount(el) {
   el.innerHTML = `
-    <div class="segmented stock-seg" role="tablist">
+    <div class="segmented shop-seg" role="tablist">
       ${SEGMENTS.map(
         (s) => `<button type="button" role="tab" data-seg="${s.key}" aria-selected="${String(s.key === segment)}">${t(s.label)}</button>`
       ).join('')}
     </div>
-    <div class="stock-view"></div>`;
-  const view = el.querySelector('.stock-view');
+    <div class="shop-view"></div>`;
+  const view = el.querySelector('.shop-view');
   let stop = null;
 
   function show() {
@@ -42,7 +42,7 @@ export function mount(el) {
     const box = document.createElement('div');
     view.replaceChildren(box);
     stop =
-      (segment === 'prices' ? prices.mountCompare(box) : segment === 'stores' ? prices.mountStores(box) : stock.mount(box)) ?? null;
+      (segment === 'prices' ? prices.mountCompare(box) : segment === 'stores' ? prices.mountStores(box) : shopping.mount(box)) ?? null;
   }
 
   el.addEventListener('click', (e) => {

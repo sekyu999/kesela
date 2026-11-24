@@ -65,7 +65,7 @@ export function mount(el) {
 
       <section>
         <h2 class="section-title">${t('起動時の画面')}</h2>
-        <div class="segmented font-levels" role="radiogroup" aria-label="${t('起動時の画面')}">
+        <div class="segmented" role="radiogroup" aria-label="${t('起動時の画面')}">
           ${START_OPTIONS.map(
             (o) => `<button type="button" role="radio" data-start="${o.key}" aria-checked="false">${t(o.label)}</button>`
           ).join('')}
@@ -75,7 +75,7 @@ export function mount(el) {
 
       <section>
         <h2 class="section-title">${t('カレンダーの始まり')}</h2>
-        <div class="segmented font-levels" role="radiogroup" aria-label="${t('カレンダーの始まり')}">
+        <div class="segmented" role="radiogroup" aria-label="${t('カレンダーの始まり')}">
           ${WEEK_OPTIONS.map((o) => `<button type="button" role="radio" data-week="${o.key}" aria-checked="false">${t(o.label)}</button>`).join('')}
         </div>
       </section>
@@ -116,7 +116,7 @@ export function mount(el) {
 
       <section>
         <h2 class="section-title">${t('文字の大きさ')}</h2>
-        <div class="segmented font-levels" role="radiogroup">
+        <div class="segmented font-levels" role="radiogroup" data-font-levels>
           ${FONT_LEVELS.map(
             (f, i) => `<button type="button" role="radio" data-font="${f.scale}" aria-label="${esc(t(f.label))}" style="font-size:${13 + i * 2.5}px">${t('あ')}</button>`
           ).join('')}
@@ -163,7 +163,7 @@ export function mount(el) {
     el.querySelectorAll('[data-font]').forEach((b) =>
       b.setAttribute('aria-checked', String(Number(b.dataset.font) === getFontScale()))
     );
-  el.querySelector('.font-levels:not(.lang-options)').addEventListener('click', (e) => {
+  el.querySelector('[data-font-levels]').addEventListener('click', (e) => {
     const b = e.target.closest('[data-font]');
     if (!b) return;
     setFontScale(Number(b.dataset.font));

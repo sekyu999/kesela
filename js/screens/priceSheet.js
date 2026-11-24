@@ -3,7 +3,9 @@
 import { openSheet } from '../ui/sheet.js';
 import { bindErrorClear, showErrors, formValues } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
-import { listProducts, getProduct, ValidationError } from '../data/productRepo.js';
+import { listProducts, getProduct, createProduct, ValidationError } from '../data/productRepo.js';
+import { listCategories } from '../data/categoryRepo.js';
+import { nameKey } from '../domain/product.js';
 import { listStores } from '../data/storeRepo.js';
 import { setStorePrice, latestFor } from '../data/priceRepo.js';
 import { INPUT_UNITS } from '../domain/units.js';
@@ -15,14 +17,10 @@ import { t } from '../lib/i18n.js';
  * @param {{ productId?: string, storeId?: string }} [preset]
  */
 export async function openPriceSheet(preset = {}) {
-  const [products, stores] = await Promise.all([listProducts(), listStores()]);
+  const [products, stores, categories] = await Promise.all([listProducts(), listStores(), listCategories()]);
 
   if (stores.length === 0) {
-    toast(t('先に「価格」タブの「店舗」で店舗を登録してください'));
-    return;
-  }
-  if (products.length === 0) {
-    toast(t('先に「在庫」タブで商品を登録してください'));
+    toast(t('先に「お店」で店舗を登録してください'));
     return;
   }
 
@@ -33,12 +31,19 @@ export async function openPriceSheet(preset = {}) {
   const body = `
     <form novalidate>
       <div class="field">
-        <label for="f-productId">${t('商品')}</label>
-        <select id="f-productId" name="productId" class="select" ${product ? 'disabled' : ''}>
-          <option value="">${t('選んでください')}</option>
-          ${products.map((p) => `<option value="${p.id}" ${p.id === productId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
-        </select>
-        ${product ? `<input type="hidden" name="productId" value="${product.id}">` : ''}
+        <label for="f-productName">${t('商品')}</label>
+        ${
+          product
+            ? `<input id="f-productName" class="input" value="${esc(product.name)}" disabled>
+               <input type="hidden" name="productId" value="${product.id}">`
+            : `<input id="f-productName" name="productName" class="input" list="price-product-names" autocomplete="off"
+                      placeholder="${t('選ぶか、新しい名前を入れる')}" enterkeyhint="next">
+               <datalist id="price-product-names">
+                 ${products.map((p) => `<option value="${esc(p.name)}"></option>`).join('')}
+               </datalist>
+               <p class="note">${t('登録のない名前を入れると、在庫を管理しない商品として作ります。')}</p>`
+        }
+        <p class="field-error" data-error-for="productName"></p>
         <p class="field-error" data-error-for="productId"></p>
       </div>
 
@@ -88,9 +93,15 @@ export async function openPriceSheet(preset = {}) {
   const submitBtn = form.querySelector('button[type="submit"]');
 
   // その店舗の記録があれば入れる。なければ内容量だけ商品マスタから
+  /** 入れた名前に合う商品（無ければ null） */
+  function findByName(name) {
+    const key = nameKey(name ?? '');
+    return key ? (products.find((p) => nameKey(p.name) === key) ?? null) : null;
+  }
+
   async function fill() {
-    // 商品が決まっている時は select（無効）と hidden の2つがあるので hidden を優先
-    const pid = (form.querySelector('input[name="productId"]') ?? form.querySelector('select[name="productId"]')).value;
+    const hidden = form.querySelector('input[name="productId"]');
+    const pid = hidden ? hidden.value : (findByName(form.elements.namedItem('productName')?.value)?.id ?? '');
     const sid = form.elements.namedItem('storeId').value;
     if (!pid) return;
     const [p, last] = await Promise.all([getProduct(pid), sid ? latestFor(pid, sid) : null]);
@@ -103,14 +114,37 @@ export async function openPriceSheet(preset = {}) {
     submitBtn.textContent = last ? t('保存') : t('記録する');
   }
   form.addEventListener('change', (e) => {
-    if (e.target.name === 'productId' || e.target.name === 'storeId') fill();
+    if (e.target.name === 'productName' || e.target.name === 'storeId') fill();
   });
   fill();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await setStorePrice(formValues(form));
+      const values = formValues(form);
+      if (!values.productId) {
+        // 名前で探し、無ければ「在庫を管理しない商品」としてその場で作る
+        const name = String(values.productName ?? '').trim();
+        if (!name) {
+          showErrors(form, { productName: '商品を選ぶか、名前を入れてください' });
+          return;
+        }
+        const found = findByName(name);
+        if (found) values.productId = found.id;
+        else {
+          const made = await createProduct({
+            name,
+            categoryId: categories[0]?.id ?? '',
+            inventoryUnit: t('個'),
+            currentStock: 0,
+            targetStock: 0,
+            trackStock: false,
+          });
+          values.productId = made.id;
+          toast(t('「{name}」を在庫を管理しない商品として追加しました', { name }));
+        }
+      }
+      await setStorePrice(values);
       sheet.close();
       toast(t('価格を記録しました'));
     } catch (err) {
