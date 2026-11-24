@@ -10,7 +10,7 @@ import { listByMonth } from '../data/transactionRepo.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
-import { summarize, byCategory, donutSlices, monthOf } from '../domain/kakeibo.js';
+import { summarize, byCategory, donutSlices, monthOf, resolveSavingsGoal } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
 import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
@@ -20,6 +20,10 @@ import { todayLocal, esc } from '../lib/util.js';
 import { t, money, monthText, dateShort } from '../lib/i18n.js';
 
 export const title = '家計';
+
+/** 編集の鉛筆（カテゴリの編集と同じ形） */
+const PEN_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
 
 const SEGMENTS = [
   { key: 'input', label: '記録' },
@@ -148,7 +152,7 @@ function mountMonth(el) {
   el.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
-    if (btn.dataset.action === 'goal') openSavingsGoalSheet();
+    if (btn.dataset.action === 'goal') openSavingsGoalSheet(viewMonth);
     if (btn.dataset.action === 'fixed') openFixedCostList(viewMonth);
   });
 
@@ -156,7 +160,7 @@ function mountMonth(el) {
     if (!state) return;
     const { rows, categories, fixedCosts, savingsGoal } = state;
     navEl.innerHTML = monthNavHtml(viewMonth);
-    const s = summarize(rows, { savingsGoal });
+    const s = summarize(rows, { savingsGoal: resolveSavingsGoal(savingsGoal, viewMonth) });
     // 左＝変動費だけ（何に使ったかが分かる）、右＝固定費も入れた全体
     const varCats = byCategory(
       rows.filter((r) => !r.fixedCostId),
@@ -168,18 +172,19 @@ function mountMonth(el) {
     bodyEl.innerHTML = `
       <div class="stack">
         <section class="card">
-          <ul class="kb-stats">
+          <ul class="kb-stats is-four">
             <li><span>${t('収入')}</span><strong>${money(s.income)}</strong></li>
             <li><span>${t('支出')}</span><strong>${money(s.expense)}</strong></li>
             <li class="${s.savings < 0 ? 'is-minus' : ''}"><span>${t('貯金額')}</span><strong>${money(s.savings)}</strong></li>
+            <li>
+              <span>${t('貯金目標')}<button type="button" class="stat-edit" data-action="goal" aria-label="${esc(t('貯金目標を編集'))}">${PEN_ICON}</button></span>
+              <strong>${s.savingsGoal ? money(s.savingsGoal) : t('未設定')}</strong>
+            </li>
           </ul>
           ${freeHtml(s)}
         </section>
         ${allCats.length ? donutsHtml(varCats, allCats, s) : ''}
-        <div class="row kb-links">
-          <button type="button" class="btn grow" data-action="fixed">${t('固定費・固定収入')}</button>
-          <button type="button" class="btn grow" data-action="goal">${t('貯金目標')}</button>
-        </div>
+        <button type="button" class="btn btn-block" data-action="fixed">${t('固定費・固定収入')}</button>
       </div>`;
   }
 
@@ -190,7 +195,7 @@ function mountMonth(el) {
         rows: await listByMonth(viewMonth),
         categories: await listExpenseCategories(),
         fixedCosts: await listFixedCosts(),
-        savingsGoal: (await getMeta(META.savingsGoal)) ?? 0,
+        savingsGoal: await getMeta(META.savingsGoal),
       }),
       (s) => {
         state = s;
@@ -208,7 +213,7 @@ function freeHtml(s) {
     return `<p class="notice kb-notice">${t('今月の収入がまだ記録されていません。給与を「固定収入」として登録してください。')}</p>`;
   }
   if (s.free === null) {
-    return `<p class="notice kb-notice">${t('下の「貯金目標」を決めると、今月自由に使えるお金が出せます。')}</p>`;
+    return `<p class="notice kb-notice">${t('上の「貯金目標」を決めると、今月自由に使えるお金が出せます。')}</p>`;
   }
   const total = Math.max(s.income, s.expense + s.savingsGoal, 1);
   const pct = (n) => `${(n / total) * 100}%`;
@@ -222,11 +227,11 @@ function freeHtml(s) {
 }
 
 /**
- * 区切りの色。固定費は、同じ色番号のカテゴリと混ざらないように暗くする
+ * 区切りの色。固定費は、同じ色番号のカテゴリと混ざらないように明るくする
  */
 function sliceColor(row) {
   const base = `var(--swatch-${(row.colorIndex ?? 0) + 1})`;
-  return row.fixedCostId ? `color-mix(in srgb, ${base} 58%, #000)` : base;
+  return row.fixedCostId ? `color-mix(in srgb, ${base} 52%, #fff)` : base;
 }
 
 /** 1つ分の円グラフ（名前を輪の中に出す） */

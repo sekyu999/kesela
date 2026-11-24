@@ -604,15 +604,14 @@ html.sheet-open { overflow: hidden; }
 .row-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
 .row-fields .field { margin-top: 0 !important; }
 .row-fields .input { width: 100% !important; min-width: 0; }
-.check-row {
-  display: flex; align-items: center; gap: 10px;
-  min-height: var(--tap); margin: 0 !important; padding: 0 12px;
-  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+/* チェックの行。`.field label` の display:block に負けないよう、同じ強さで書く */
+.check-row, .field label.check-row, .field .check-row {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; margin: 0; padding: 0;
+  border: none; background: none;
   font-weight: 400 !important; cursor: pointer;
 }
 .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; margin: 0; }
-/* 一覧の中のチェックは、枠を付けずに行になじませる */
-.list .check-row { border: none; border-radius: 0; background: none; padding: 0; min-height: 40px; }
 .body-preview { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--bg); line-height: 1.8; }
 .body-preview:empty { display: none; }
 .member-list > li { padding-top: 4px !important; padding-bottom: 4px !important; }
@@ -1221,3 +1220,9 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 /* チェックのすぐ下に続く部品は、少しだけ間を空ける */
 .check-after { margin-top: 8px; }
 .kb-links { gap: 8px; }
+
+/* 数字の並びに貯金目標を足した時（4つ並び）と、見出しの横の編集ボタン */
+.kb-stats.is-four strong { font-size: calc(16px * var(--fs)); }
+.kb-stats li > span { display: inline-flex; align-items: center; justify-content: center; gap: 2px; }
+.stat-edit { padding: 0; border: none; background: none; line-height: 0; }
+.stat-edit svg { width: 14px; height: 14px; fill: none; stroke: var(--text-sub); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

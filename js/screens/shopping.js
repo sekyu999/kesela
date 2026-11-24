@@ -214,8 +214,7 @@ function openItemSheet(item, state) {
       }
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
-        ${item.productId ? `<button type="button" class="btn btn-block" data-prices>${t('お店ごとの価格を見る')}</button>` : ''}
-        ${item.productId ? `<button type="button" class="btn btn-block" data-price>${t('価格を記録')}</button>` : ''}
+        ${item.productId ? `<button type="button" class="btn btn-block" data-prices>${t('お店ごとの価格')}</button>` : ''}
         <button type="button" class="btn-danger-text" data-remove>${t('今回は買わない（リストから削除）')}</button>
       </div>
     </form>`;
@@ -232,10 +231,6 @@ function openItemSheet(item, state) {
   form.querySelector('[data-prices]')?.addEventListener('click', () => {
     sheet.close();
     openProductPriceSheet(item.productId);
-  });
-  form.querySelector('[data-price]')?.addEventListener('click', () => {
-    sheet.close();
-    openPriceSheet({ productId: item.productId, storeId: state.storeId ?? undefined, quantity: item.quantity });
   });
   form.querySelector('[data-remove]').addEventListener('click', async () => {
     const undo = await removeItem(item.id);

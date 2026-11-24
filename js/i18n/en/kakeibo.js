@@ -78,7 +78,6 @@ export default {
   // 設定
   家計簿の設定: 'Budget book settings',
   貯金目標: 'Savings goal',
-  '今月ためたい額。決めると「自由に使えるお金」が出せます。': 'How much you want to save this month. Needed to show what you are free to spend.',
   月予算: 'Monthly budget',
   '固定費を含む、その月に使っていい総額。空欄なら予算を出しません。':
     'The total you may spend that month, fixed costs included. Leave empty to hide the budget.',
@@ -202,13 +201,17 @@ export default {
   買い物: 'Shopping',
   買い物リストを更新: 'Update the shopping list',
   お店ごとの価格を見る: 'See prices by store',
-  '下の「貯金目標」を決めると、今月自由に使えるお金が出せます。': 'Set a savings goal below to see what you are free to spend this month.',
   '選ぶか、新しい名前を入れる': 'Choose one, or type a new name',
   '登録のない名前を入れると、在庫を管理しない商品として作ります。': 'A name that is not registered is added as an item without stock tracking.',
   '「{name}」を在庫を管理しない商品として追加しました': 'Added "{name}" as an item without stock tracking',
   '商品を選ぶか、名前を入れてください': 'Choose an item or type a name',
   '先に「お店」で店舗を登録してください': 'Add a store under "Stores" first',
   '「在庫」タブで商品を登録するか、右下の「＋ 価格」から追加すると、ここで価格を比べられます。': 'Add items on the Stock tab, or with "+ Price" at the bottom right, to compare prices here.',
+  お店ごとの価格: 'Prices by store',
+  貯金目標を編集: 'Edit savings goal',
+  未設定: 'Not set',
+  'ためたい額。決めると「自由に使えるお金」が出せます。': 'How much you want to save. Needed to show what you are free to spend.',
+  '上の「貯金目標」を決めると、今月自由に使えるお金が出せます。': 'Set the savings goal above to see what you are free to spend this month.',
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',

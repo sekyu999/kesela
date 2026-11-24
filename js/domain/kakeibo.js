@@ -122,6 +122,37 @@ export function donutSlices(rows, circumference = 100) {
   });
 }
 
+/**
+ * 貯金目標を決める。月ごとに違う額を入れられる。
+ *   保存の形： { default: 50000, '2026-12': 80000 }（古い形の数値1つも読める）
+ * @param {object|number|null} goals meta の savingsGoal
+ * @param {string} month YYYY-MM
+ * @returns {number} 決まらなければ 0
+ */
+export function resolveSavingsGoal(goals, month) {
+  if (goals == null) return 0;
+  if (typeof goals === 'number') return Math.max(0, Math.round(goals)); // 古い形
+  const v = goals[month] ?? goals.default;
+  return Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0;
+}
+
+/** その月にじかに入っている貯金目標（無ければ null）。設定画面で中身を出すのに使う */
+export function rawSavingsGoal(goals, month) {
+  if (goals == null || typeof goals === 'number') return month === null ? (goals ?? null) : null;
+  const key = month === null ? 'default' : month;
+  const v = goals[key];
+  return Number.isFinite(Number(v)) ? Number(v) : null;
+}
+
+/** 月ごとの目標を入れ直した、新しい保存の形を作る */
+export function withSavingsGoal(goals, month, amount) {
+  const base = goals == null ? {} : typeof goals === 'number' ? { default: goals } : { ...goals };
+  const key = month === null ? 'default' : month;
+  if (amount == null) delete base[key];
+  else base[key] = amount;
+  return base;
+}
+
 /** YYYY-MM の差（月数） */
 export function monthsBetween(from, to) {
   const [y1, m1] = from.split('-').map(Number);

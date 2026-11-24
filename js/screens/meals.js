@@ -33,6 +33,11 @@ const MAIN = SHOWN_NUTRIENTS;
 
 /** 画面を離れても覚えておく表示状態 */
 let tab = 'daily';
+
+/** 下のタブで「食事」をもう一度押した時は、いちばん左に戻す */
+export function resetSegment() {
+  tab = 'daily';
+}
 let meal = 'all';
 
 export function mount(el) {

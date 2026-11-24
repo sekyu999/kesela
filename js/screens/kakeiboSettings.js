@@ -13,7 +13,7 @@ import {
 } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, getFixedCost, saveFixedCost, deleteFixedCost, countGeneratedRows, applyToMonth } from '../data/fixedCostRepo.js';
 import { getMeta, setMeta, META } from '../data/metaRepo.js';
-import { validateYenOrEmpty, PALETTE_SIZE } from '../domain/kakeibo.js';
+import { validateYenOrEmpty, rawSavingsGoal, withSavingsGoal, PALETTE_SIZE } from '../domain/kakeibo.js';
 import { averageAmount, SAMPLE_MONTHS, CYCLES, cycleOf, cycleLabel, spreadOf, spreadLabel, monthlyAmount } from '../domain/fixedCost.js';
 import { thisMonth } from '../domain/plans.js';
 import { ValidationError } from '../data/productRepo.js';
@@ -23,39 +23,56 @@ import { yearOptions, monthOptions } from '../ui/monthPick.js';
 import { esc } from '../lib/util.js';
 import { t, money, monthText, monthOnlyText } from '../lib/i18n.js';
 
-/** 貯金目標だけを決めるシート（今月タブの「使えるお金」から開く） */
-export async function openSavingsGoalSheet() {
-  const goal = await getMeta(META.savingsGoal);
-  const sheet = openSheet({
-    title: t('貯金目標'),
-    body: `
+/** 貯金目標を決めるシート。毎月の額と、その月だけの額を分けて入れられる */
+export async function openSavingsGoalSheet(month = thisMonth()) {
+  const sheet = openSheet({ title: t('貯金目標'), body: `<div data-body></div>` });
+  const body = sheet.el.querySelector('[data-body]');
+  /** 'default'（毎月）か 'month'（この月だけ） */
+  let target = 'default';
+
+  async function render() {
+    const goals = await getMeta(META.savingsGoal);
+    const value = rawSavingsGoal(goals, target === 'month' ? month : null);
+    body.innerHTML = `
       <form novalidate>
-        <p class="sheet-lead">${t('今月ためたい額。決めると「自由に使えるお金」が出せます。')}</p>
+        <p class="sheet-lead">${t('ためたい額。決めると「自由に使えるお金」が出せます。')}</p>
+        <div class="segmented" role="tablist">
+          <button type="button" role="tab" data-target="default" aria-selected="${String(target === 'default')}">${t('毎月')}</button>
+          <button type="button" role="tab" data-target="month" aria-selected="${String(target === 'month')}">${t('{month}だけ', { month: monthText(month, null) })}</button>
+        </div>
         <div class="field">
-          <div class="row" style="align-items:center">
-            <input name="savingsGoal" class="input grow" inputmode="numeric" value="${goal ?? ''}"
-                   placeholder="${t('例：50000')}" autocomplete="off">
+          <div class="row">
+            <input name="savingsGoal" class="input grow" inputmode="numeric" value="${value ?? ''}"
+                   placeholder="${target === 'month' ? esc(t('空欄なら毎月の設定を使う')) : esc(t('例：50000'))}" autocomplete="off">
             <span class="unit-suffix">${t('円')}</span>
           </div>
           <p class="field-error" data-error-for="savingsGoal"></p>
         </div>
         <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${t('保存')}</button></div>
-      </form>`,
-  });
-  const form = sheet.el.querySelector('form');
-  bindErrorClear(form);
-  form.elements.namedItem('savingsGoal').focus();
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const r = validateYenOrEmpty(form.elements.namedItem('savingsGoal').value);
-    if (!r.ok) {
-      showErrors(form, { savingsGoal: r.error });
-      return;
-    }
-    await setMeta(META.savingsGoal, r.value ?? 0);
-    sheet.close();
-    toast(t('保存しました'));
-  });
+      </form>`;
+
+    const form = body.querySelector('form');
+    bindErrorClear(form);
+    form.querySelectorAll('[data-target]').forEach((b) =>
+      b.addEventListener('click', () => {
+        target = b.dataset.target;
+        render();
+      })
+    );
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = validateYenOrEmpty(form.elements.namedItem('savingsGoal').value);
+      if (!r.ok) {
+        showErrors(form, { savingsGoal: r.error });
+        return;
+      }
+      await setMeta(META.savingsGoal, withSavingsGoal(await getMeta(META.savingsGoal), target === 'month' ? month : null, r.value));
+      sheet.close();
+      toast(t('保存しました'));
+    });
+  }
+
+  await render();
   return sheet;
 }
 

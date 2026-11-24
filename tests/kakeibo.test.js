@@ -118,3 +118,20 @@ test('金額の入力（貯金目標）：空欄は「設定しない」', () =>
   assert.deepEqual(validateYenOrEmpty('200,000'), { ok: true, value: 200000 });
   assert.equal(validateYenOrEmpty('-1').ok, false);
 });
+
+test('貯金目標は月ごとに決められる（古い形の数値1つも読める）', async () => {
+  const { resolveSavingsGoal, rawSavingsGoal, withSavingsGoal } = await import('../js/domain/kakeibo.js');
+  const goals = { default: 50000, '2026-12': 80000 };
+  assert.equal(resolveSavingsGoal(goals, '2026-11'), 50000); // 既定にさかのぼる
+  assert.equal(resolveSavingsGoal(goals, '2026-12'), 80000); // その月の分が優先
+  assert.equal(resolveSavingsGoal(null, '2026-11'), 0);
+  assert.equal(resolveSavingsGoal(30000, '2026-11'), 30000); // 古い形
+
+  assert.equal(rawSavingsGoal(goals, null), 50000);
+  assert.equal(rawSavingsGoal(goals, '2026-12'), 80000);
+  assert.equal(rawSavingsGoal(goals, '2026-11'), null); // その月にはじかに入っていない
+
+  assert.deepEqual(withSavingsGoal(goals, '2026-11', 60000), { default: 50000, '2026-12': 80000, '2026-11': 60000 });
+  assert.deepEqual(withSavingsGoal(goals, '2026-12', null), { default: 50000 }); // 空欄で既定に戻す
+  assert.deepEqual(withSavingsGoal(30000, null, 40000), { default: 40000 }); // 古い形からも作れる
+});
