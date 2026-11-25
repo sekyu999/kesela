@@ -22,26 +22,28 @@ export function unitPrice(record) {
   return { value, unit: record.packageContentUnit, label: `${base === 1 ? '1' : base}${record.packageContentUnit}あたり` }; // i18n-ignore（画面では使わず、言語に合わせて作り直す）
 }
 
+/** 価格のメモの長さの上限 */
+export const MEMO_MAX = 40;
+
 /** 新しい順に並べるための比較（購入日 → 登録日時） */
 export function newestFirst(a, b) {
   return b.purchasedAt.localeCompare(a.purchasedAt) || b.createdAt.localeCompare(a.createdAt);
 }
 
 /**
- * 店舗ごとの最新価格を比べ、最安店舗を決める（指示書 4-4）
- * - 各店舗の最新記録だけを使う
- * - 全店舗の最新記録に同じ種類（g / ml / 個）の内容量があれば単位価格で比較
+ * 記録された価格を比べ、いちばん安いものを決める
+ * - v1.20 から、同じ店舗の記録を何件でも持てる（容量違い・銘柄違いをメモで見分ける）。
+ *   記録1件が1行になる
+ * - すべての記録に同じ種類（g / ml / 個）の内容量があれば単位価格で比較
  * - そうでなければ 1管理単位あたりの価格で比較
  * @param {Array} records その商品の全価格記録
- * @returns {{ mode: 'unit'|'item'|'none', rows: Array<{storeId:string, record:object,
+ * @returns {{ mode: 'unit'|'item'|'none', rows: Array<{id:string, storeId:string, record:object,
  *            perItem:number, unit:ReturnType<typeof unitPrice>, cheapest:boolean}> }}
  *   rows は安い順
  */
 export function compareStores(records) {
-  const latest = new Map();
-  for (const r of [...records].sort(newestFirst)) if (!latest.has(r.storeId)) latest.set(r.storeId, r);
-
-  const rows = [...latest.values()].map((record) => ({
+  const rows = [...records].sort(newestFirst).map((record) => ({
+    id: record.id,
     storeId: record.storeId,
     record,
     perItem: pricePerItem(record),
@@ -88,6 +90,9 @@ export function validatePriceInput(raw, today) {
   if (!String(raw.price ?? '').trim()) errors.price = '金額を入力してください';
   else if (!Number.isInteger(price) || price <= 0 || price > 1000000) errors.price = '1円以上の整数で入力してください';
 
+  const memo = String(raw.memo ?? '').trim();
+  if (memo.length > MEMO_MAX) errors.memo = 'メモは短くしてください';
+
   const quantity = Number(raw.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) errors.quantity = '1以上の整数で入力してください';
 
@@ -119,6 +124,7 @@ export function validatePriceInput(raw, today) {
       packageContent,
       packageContentUnit,
       purchasedAt,
+      memo: memo || null,
     },
   };
 }

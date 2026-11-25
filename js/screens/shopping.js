@@ -123,7 +123,7 @@ export function mount(el) {
       const bestStores = new Map();
       for (const [productId, rs] of byProduct) {
         const cmp = compareStores(rs);
-        if (cmp.mode !== 'none') bestStores.set(productId, cmp.rows.filter((r) => r.cheapest).map((r) => r.storeId));
+        if (cmp.mode !== 'none') bestStores.set(productId, [...new Set(cmp.rows.filter((r) => r.cheapest).map((r) => r.storeId))]);
       }
 
       const productById = new Map(products.map((p) => [p.id, p]));

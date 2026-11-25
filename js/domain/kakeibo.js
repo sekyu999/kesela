@@ -42,6 +42,31 @@ export function monthOf(date) {
   return String(date).slice(0, 7);
 }
 
+/** その月から数えて n か月分の YYYY-MM（古い順。最後が month） */
+export function lastMonths(month, n = 12) {
+  const [y, m] = month.split('-').map(Number);
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    out.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  return out;
+}
+
+/**
+ * 月ごとの収入・支出の合計（年間グラフ用）
+ * @param {Array} transactions 記録
+ * @param {string[]} months lastMonths() の並び
+ */
+export function monthlyTotals(transactions, months) {
+  const map = new Map(months.map((m) => [m, { month: m, expense: 0, income: 0 }]));
+  for (const t of transactions) {
+    const g = map.get(monthOf(t.date));
+    if (g && (t.type === 'expense' || t.type === 'income')) g[t.type] += Number(t.amount) || 0;
+  }
+  return months.map((m) => map.get(m));
+}
+
 /** 金額の合計 */
 export function sumAmount(list) {
   return list.reduce((s, x) => s + (Number(x.amount) || 0), 0);

@@ -334,4 +334,10 @@ export default {
   同期にログインしてください: 'Please sign in to sync',
   もう一度ログインする: 'Try signing in again',
   '同期をやめて、この端末のデータで使う': 'Stop syncing and use this device’s data',
+  '例：200gの方・特売': 'e.g. the 200g one, on sale',
+  '同じお店で複数の価格を分けて記録したい時に使います。': 'Use this to keep several prices from the same store apart.',
+  '{n}件の記録': '{n} records',
+  'この価格を削除しますか？': 'Delete this price?',
+  'メモは短くしてください': 'Keep the note shorter',
+  '価格を直す': 'Edit price',
 };

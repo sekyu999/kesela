@@ -5,12 +5,13 @@
 // ・カレンダー … 日ごとの支出と、日付ごとにまとめた記録
 // ・予定      … 今までの「家計」（js/screens/budget.js）。見込み・計画のまま
 import { watch } from '../ui/live.js';
+import { openSheet } from '../ui/sheet.js';
 import { toast } from '../ui/toast.js';
-import { listByMonth } from '../data/transactionRepo.js';
+import { listByMonth, listBetween } from '../data/transactionRepo.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
 import { listFixedCosts, generateFixedRows } from '../data/fixedCostRepo.js';
 import { getMeta, META } from '../data/metaRepo.js';
-import { summarize, byCategory, donutSlices, monthOf, resolveSavingsGoal } from '../domain/kakeibo.js';
+import { summarize, byCategory, donutSlices, monthOf, resolveSavingsGoal, lastMonths, monthlyTotals } from '../domain/kakeibo.js';
 import { thisMonth, addMonths } from '../domain/plans.js';
 import { weekDays, weekStart } from '../ui/weekStart.js';
 import * as budget from './budget.js';
@@ -150,6 +151,20 @@ function mountMonth(el) {
   bindMonthNav(navEl, () => subscribe());
 
   el.addEventListener('click', (e) => {
+    // 円グラフ・凡例をタップしたら、その分類の記録一覧を出す
+    const slice = e.target.closest('[data-slice]');
+    if (slice && state) {
+      const row = state.allCats?.find((c) => c.key === slice.dataset.slice);
+      if (row) openSliceSheet(row, state.rows);
+      return;
+    }
+    // 年間グラフの棒をタップしたら、その月に移る
+    const bar = e.target.closest('[data-month]');
+    if (bar) {
+      viewMonth = bar.dataset.month;
+      subscribe();
+      return;
+    }
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'goal') openSavingsGoalSheet(viewMonth);
@@ -168,6 +183,7 @@ function mountMonth(el) {
       fixedCosts
     );
     const allCats = byCategory(rows, categories, fixedCosts);
+    state.allCats = allCats;
 
     bodyEl.innerHTML = `
       <div class="stack">
@@ -184,6 +200,7 @@ function mountMonth(el) {
           ${freeHtml(s)}
         </section>
         ${allCats.length ? donutsHtml(varCats, allCats, s) : ''}
+        ${yearHtml(state.yearRows)}
         <button type="button" class="btn btn-block" data-action="fixed">${t('固定費・固定収入')}</button>
       </div>`;
   }
@@ -191,12 +208,16 @@ function mountMonth(el) {
   function subscribe() {
     stop?.();
     stop = watch(
-      async () => ({
-        rows: await listByMonth(viewMonth),
-        categories: await listExpenseCategories(),
-        fixedCosts: await listFixedCosts(),
-        savingsGoal: await getMeta(META.savingsGoal),
-      }),
+      async () => {
+        const months = lastMonths(viewMonth, 12);
+        return {
+          rows: await listByMonth(viewMonth),
+          categories: await listExpenseCategories(),
+          fixedCosts: await listFixedCosts(),
+          savingsGoal: await getMeta(META.savingsGoal),
+          yearRows: monthlyTotals(await listBetween(months[0], viewMonth), months),
+        };
+      },
       (s) => {
         state = s;
         render();
@@ -250,7 +271,8 @@ function donutSvg(rows, label) {
   const ring = slices
     .map((s) => {
       const dash = `stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"`;
-      const arc = (stroke) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${stroke}" stroke-width="10" ${dash}></circle>`;
+      const arc = (stroke) =>
+        `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${stroke}" stroke-width="10" ${dash} data-slice="${esc(s.key)}"></circle>`;
       return arc(sliceColor(s)) + (s.fixedCostId ? arc('url(#kb-fx-stripe)') : '');
     })
     .join('');
@@ -275,6 +297,26 @@ function donutSvg(rows, label) {
 
 /** 何に使ったか：変動費だけと、固定費も入れた全体を横に並べる */
 function donutsHtml(varCats, allCats, s) {
+  // 左＝固定費以外の支出、右＝固定費。同じ色でも斜線の有無で見分けられる
+  const variable = allCats.filter((c) => !c.fixedCostId);
+  const fixedRows = allCats.filter((c) => c.fixedCostId);
+  const fixedTotal = s.expense - s.variable;
+
+  const item = (c) => `<li>
+    <button type="button" class="kb-legend-row" data-slice="${esc(c.key)}">
+      <span class="kb-dot" style="${dotStyle(c)}"></span>
+      <span class="grow">
+        <span class="kb-legend-name">${esc(c.name)}</span>
+        <span class="kb-legend-sub">${Math.round(c.ratio * 100)}% ${money(c.amount)}</span>
+      </span>
+    </button>
+  </li>`;
+
+  const col = (label, list, total) => `<div class="kb-legend-col">
+    <h3 class="kb-legend-head"><span>${label}</span><strong>${money(total)}</strong></h3>
+    ${list.length ? `<ul class="kb-legend">${list.map(item).join('')}</ul>` : `<p class="note">${t('なし')}</p>`}
+  </div>`;
+
   return `<section class="card">
     <svg class="kb-defs" aria-hidden="true" focusable="false"><defs>
       <pattern id="kb-fx-stripe" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -285,17 +327,87 @@ function donutsHtml(varCats, allCats, s) {
       ${donutSvg(varCats, t('固定費を除く'))}
       ${donutSvg(allCats, t('固定費込み'))}
     </div>
-    <ul class="kb-legend">
-      ${allCats
+    <div class="kb-legend-cols">
+      ${col(t('支出'), variable, s.variable)}
+      ${col(t('固定費'), fixedRows, fixedTotal)}
+    </div>
+    <p class="kb-free-note">${t('名前をタップすると、その記録の一覧が見られます。')}</p>
+  </section>`;
+}
+
+/** その分類（カテゴリ・固定費）の、この月の記録一覧 */
+function openSliceSheet(row, rows) {
+  const list = rows.filter(
+    (r) =>
+      r.type === 'expense' &&
+      (row.fixedCostId ? r.fixedCostId === row.fixedCostId : !r.fixedCostId && (r.categoryId ?? '') === (row.categoryId ?? ''))
+  );
+  const total = list.reduce((n, r) => n + (Number(r.amount) || 0), 0);
+  const days = new Map();
+  for (const r of list) {
+    if (!days.has(r.date)) days.set(r.date, []);
+    days.get(r.date).push(r);
+  }
+  const body = `
+    <ul class="kb-stats">
+      <li><span>${t('件数')}</span><strong>${t('{n}件', { n: list.length })}</strong></li>
+      <li><span>${t('合計')}</span><strong>${money(total)}</strong></li>
+    </ul>
+    ${
+      list.length
+        ? [...days.entries()]
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(
+              ([date, items]) => `<section class="kb-day">
+                <h3 class="section-title kb-day-head"><span>${dateShort(date)}</span><span>${money(
+                  items.reduce((n, r) => n + (Number(r.amount) || 0), 0)
+                )}</span></h3>
+                <ul class="list compact-list">${items
+                  .map(
+                    (r) => `<li class="kb-row">
+                      <button type="button" class="row-button" data-action="edit" data-id="${r.id}">
+                        <span class="grow kb-name">${r.memo ? esc(r.memo) : `<span class="kb-memo">${esc(row.name)}</span>`}</span>
+                        <span class="kb-amount">${money(r.amount)}</span>
+                      </button>
+                    </li>`
+                  )
+                  .join('')}</ul>
+              </section>`
+            )
+            .join('')
+        : `<div class="placeholder">${t('この分類の記録はまだありません。')}</div>`
+    }`;
+  const sheet = openSheet({ title: row.name, body });
+  sheet.el.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="edit"]');
+    if (!btn) return;
+    sheet.close();
+    openTransactionSheet(btn.dataset.id);
+  });
+}
+
+/** 直近12か月の支出の棒グラフ。棒をタップするとその月に移る */
+function yearHtml(months) {
+  if (!months?.length) return '';
+  const max = Math.max(1, ...months.map((m) => m.expense));
+  const used = months.filter((m) => m.expense > 0);
+  const avg = used.length ? Math.round(used.reduce((n, m) => n + m.expense, 0) / used.length) : 0;
+  return `<section class="card">
+    <h3 class="section-title">${t('この1年の支出')}</h3>
+    <ul class="kb-year">
+      ${months
         .map(
-          (c) => `<li><span class="kb-dot" style="${dotStyle(c)}"></span>
-            <span class="grow">${esc(c.name)}${c.fixedCostId ? `<span class="badge badge-muted">${t('固定')}</span>` : ''}</span>
-            <span class="kb-legend-pct">${Math.round(c.ratio * 100)}%</span>
-            <strong>${money(c.amount)}</strong></li>`
+          (m) => `<li>
+            <button type="button" data-month="${m.month}" class="${m.month === viewMonth ? 'is-current' : ''}"
+                    aria-label="${esc(t('{month}の支出 {amount}', { month: m.month, amount: money(m.expense) }))}">
+              <span class="kb-year-bar" style="height:${((m.expense / max) * 100).toFixed(1)}%"></span>
+              <span class="kb-year-m">${Number(m.month.slice(5))}</span>
+            </button>
+          </li>`
         )
         .join('')}
     </ul>
-    <p class="kb-free-note">${t('固定費を除く {variable} ／ 固定費込み {total}', { variable: money(s.variable), total: money(s.expense) })}</p>
+    <p class="note">${t('記録のある月の平均 {amount}', { amount: money(avg) })}</p>
   </section>`;
 }
 

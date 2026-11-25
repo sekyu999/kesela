@@ -6,7 +6,7 @@ import { watch } from '../ui/live.js';
 import { openSheet } from '../ui/sheet.js';
 import { showErrors, bindErrorClear, formValues } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
-import { listProducts, getProduct, ValidationError } from '../data/productRepo.js';
+import { listProducts, getProduct, saveProductOrder, ValidationError } from '../data/productRepo.js';
 import {
   listStores,
   getStore,
@@ -19,7 +19,8 @@ import {
   setStoreColor,
   saveStoreOrder,
 } from '../data/storeRepo.js';
-import { listAllRecords, listByProduct, deleteStorePrice } from '../data/priceRepo.js';
+import { listAllRecords, listByProduct, deletePriceRecord } from '../data/priceRepo.js';
+import { listCategories } from '../data/categoryRepo.js';
 import { compareStores, UNIT_BASE } from '../domain/pricing.js';
 import { makeSortable, dragHandle } from '../ui/sortable.js';
 import { openPriceSheet } from './priceSheet.js';
@@ -80,8 +81,8 @@ function bindActions(el) {
 
 function renderCompare(body) {
   return watch(
-    () => Promise.all([listProducts(), listStores(), listAllRecords()]),
-    ([products, stores, records]) => {
+    () => Promise.all([listProducts(), listStores(), listAllRecords(), listCategories()]),
+    ([products, stores, records, categories]) => {
       if (stores.length === 0) {
         body.innerHTML = `
           <div class="placeholder">
@@ -96,48 +97,70 @@ function renderCompare(body) {
       }
 
       const storeById = new Map(stores.map((s) => [s.id, s]));
-      const storeName = new Map(stores.map((s) => [s.id, s.name]));
       const byProduct = new Map();
       for (const r of records) {
         if (!byProduct.has(r.productId)) byProduct.set(r.productId, []);
         byProduct.get(r.productId).push(r);
       }
-      const rows = products.map((p) => ({ p, cmp: compareStores(byProduct.get(p.id) ?? []) }));
-      const withData = rows.filter((r) => r.cmp.mode !== 'none');
-      const without = rows.filter((r) => r.cmp.mode === 'none');
 
-      const rowHtml = ({ p, cmp }) => {
+      const rowHtml = (p) => {
+        const cmp = compareStores(byProduct.get(p.id) ?? []);
         if (cmp.mode === 'none') {
-          return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
-            <span class="best-mark" aria-hidden="true"></span>
-            <span class="grow">${esc(p.name)}</span><span class="note">${t('記録なし')} ›</span></button></li>`;
+          return `<li data-id="${p.id}">
+            ${dragHandle(esc(p.name))}
+            <button type="button" class="row-button grow" data-action="detail" data-id="${p.id}">
+              <span class="grow">${esc(p.name)}</span><span class="note">${t('記録なし')} ›</span></button></li>`;
         }
         const best = cmp.rows.filter((r) => r.cheapest);
         const top = best[0];
         // 最安のお店は商品名の前に色＋頭文字で出す（行を増やさない）
-        const marks = best
+        const marks = [...new Set(best.map((b) => b.storeId))]
           .slice(0, 2)
-          .map((b) => storeBadgeHtml(storeById.get(b.storeId) ?? { name: t('削除された店舗'), colorIndex: 0 }))
+          .map((id) => storeBadgeHtml(storeById.get(id) ?? { name: t('削除された店舗'), colorIndex: 0 }))
           .join('');
-        return `<li><button type="button" class="row-button" data-action="detail" data-id="${p.id}">
-          <span class="best-mark" title="${esc(t('最安のお店'))}">${marks}</span>
-          <span class="grow compare-main">
-            <span class="item-name item-name-sm">${esc(p.name)}</span>
-          </span>
-          ${priceBlock(top, p)}
-          <span class="note">›</span></button></li>`;
+        return `<li data-id="${p.id}">
+          ${dragHandle(esc(p.name))}
+          <button type="button" class="row-button grow" data-action="detail" data-id="${p.id}">
+            <span class="best-mark" title="${esc(t('最安のお店'))}">${marks}</span>
+            <span class="grow compare-main">
+              <span class="item-name item-name-sm">${esc(p.name)}</span>
+              ${cmp.rows.length > 1 ? `<span class="note">${t('{n}件の記録', { n: cmp.rows.length })}</span>` : ''}
+            </span>
+            ${priceBlock(top, p)}
+            <span class="note">›</span></button></li>`;
       };
 
+      // カテゴリごとにまとめ、カテゴリの中だけ並べ替えられるようにする
+      const groups = categories
+        .map((c) => ({ c, items: products.filter((p) => p.categoryId === c.id) }))
+        .filter((g) => g.items.length);
+      const known = new Set(categories.map((c) => c.id));
+      const rest = products.filter((p) => !known.has(p.categoryId));
+
       body.innerHTML = `
-        ${withData.length ? `<section><h2 class="section-title">${t('記録あり')}</h2><ul class="list">${withData.map(rowHtml).join('')}</ul></section>` : ''}
-        ${without.length ? `<section><h2 class="section-title">${t('まだ記録がない商品')}</h2><ul class="list">${without.map(rowHtml).join('')}</ul></section>` : ''}
+        <p class="note">${t('≡ を押さえると並べ替えられます。')}</p>
+        ${groups
+          .map(
+            (g) => `<section>
+              <h2 class="section-title">${esc(g.c.name)}</h2>
+              <ul class="list price-list" data-sortable>${g.items.map(rowHtml).join('')}</ul>
+            </section>`
+          )
+          .join('')}
+        ${
+          rest.length
+            ? `<section><h2 class="section-title">${t('その他')}</h2>
+                <ul class="list price-list" data-sortable>${rest.map(rowHtml).join('')}</ul></section>`
+            : ''
+        }
         <button type="button" class="btn btn-block" data-action="add-product">${t('＋ 在庫を管理しない商品を追加')}</button>
         <p class="note">${t('在庫には入れず、価格だけ比べたい物（お菓子・外食など）を登録できます。')}</p>`;
+
+      body.querySelectorAll('[data-sortable]').forEach((list) => makeSortable(list, { onSort: saveProductOrder }));
     }
   );
 }
 
-/** 商品の価格詳細（店舗ごとの価格。買い物リストからも開く） */
 /**
  * 店舗ごとの価格の一覧（編集・追加つき）を、渡した箱の中に描く部品。
  * 価格タブの詳細シートと、買い物リストの項目シートの両方から使う。
@@ -149,14 +172,14 @@ export function mountProductPrices(box, productId, { onMissing, addClass = 'btn 
       openPriceSheet({ productId });
       return;
     }
-    const edit = e.target.closest('[data-store-edit]');
+    const edit = e.target.closest('[data-record-edit]');
     if (edit) {
-      openPriceSheet({ productId, storeId: edit.dataset.storeEdit });
+      openPriceSheet({ productId, recordId: edit.dataset.recordEdit });
       return;
     }
-    const del = e.target.closest('[data-store-del]');
-    if (del && window.confirm(t('この店舗の価格を削除しますか？'))) {
-      await deleteStorePrice(productId, del.dataset.storeDel);
+    const del = e.target.closest('[data-record-del]');
+    if (del && window.confirm(t('この価格を削除しますか？'))) {
+      await deletePriceRecord(del.dataset.recordDel);
       toast(t('削除しました'));
     }
   });
@@ -191,15 +214,19 @@ export function mountProductPrices(box, productId, { onMissing, addClass = 'btn 
               ${cmp.rows
                 .map((r) => {
                   const name = storeName.get(r.storeId) ?? t('削除された店舗');
+                  // メモと内容量は商品名の下に小さく並べる（同じ店舗の複数の記録を見分けるため）
+                  const sub = [r.record.memo ? esc(r.record.memo) : '', r.record.packageContent ? contentLabel(r.record) : '']
+                    .filter(Boolean)
+                    .join(' · ');
                   return `<li class="compare-row record-row ${r.cheapest ? 'is-cheapest' : ''}">
-                    <button type="button" class="row-button grow" data-store-edit="${esc(r.storeId)}" aria-label="${esc(t('{store}の価格を直す', { store: name }))}">
+                    <button type="button" class="row-button grow" data-record-edit="${esc(r.id)}" aria-label="${esc(t('{store}の価格を直す', { store: name }))}">
                       <span class="grow compare-main">
                         <span class="item-name item-name-sm">${esc(name)}${r.cheapest ? `<span class="badge">${t('最安')}</span>` : ''}</span>
-                        ${r.record.packageContent ? `<span class="note">${contentLabel(r.record)}</span>` : ''}
+                        ${sub ? `<span class="note">${sub}</span>` : ''}
                       </span>
                       ${priceBlock(r, p)}
                     </button>
-                    <button type="button" class="icon-btn" data-store-del="${esc(r.storeId)}" aria-label="${esc(t('{store}の価格を削除', { store: name }))}">${t('削除')}</button>
+                    <button type="button" class="icon-btn" data-record-del="${esc(r.id)}" aria-label="${esc(t('{store}の価格を削除', { store: name }))}">${t('削除')}</button>
                   </li>`;
                 })
                 .join('')}

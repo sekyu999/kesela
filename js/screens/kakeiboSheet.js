@@ -6,7 +6,7 @@ import { showErrors, bindErrorClear } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
 import { calcFieldHtml, bindCalcField } from '../ui/calcPad.js';
 import { listExpenseCategories } from '../data/expenseCategoryRepo.js';
-import { getTransaction, saveTransaction, deleteTransaction, restoreTransaction } from '../data/transactionRepo.js';
+import { getTransaction, saveTransaction, deleteTransaction, restoreTransaction, recentMemos } from '../data/transactionRepo.js';
 import { ValidationError } from '../data/productRepo.js';
 import { todayLocal, esc } from '../lib/util.js';
 import { t, dateLong, dateShort } from '../lib/i18n.js';
@@ -37,6 +37,20 @@ function chipsHtml(list, selected) {
  * ボタンを押してシートを開かなくても、そのまま記録できるようにするためのもの。
  * 収入は固定収入（設定の「固定費・固定収入」）だけで入るので、ここは支出のみ。
  */
+/**
+ * メモの入力候補（過去に書いたメモ）。1つの datalist を使い回す
+ */
+export async function ensureMemoList() {
+  let dl = document.getElementById('kb-memos');
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = 'kb-memos';
+    document.body.append(dl);
+  }
+  const memos = await recentMemos();
+  dl.innerHTML = memos.map((m) => `<option value="${esc(m)}"></option>`).join('');
+}
+
 export function quickFormHtml() {
   return `
     <form novalidate class="quick-form">
@@ -47,7 +61,7 @@ export function quickFormHtml() {
       <div class="row quick-row">
         <input name="date" class="input quick-date" type="date" value="" aria-label="${t('日付')}">
         <input name="memo" class="input grow" maxlength="200" autocomplete="off" enterkeyhint="done"
-               aria-label="${t('メモ')}" placeholder="${t('メモ（任意）')}">
+               list="kb-memos" aria-label="${t('メモ')}" placeholder="${t('メモ（任意）')}">
       </div>
       <p class="field-error" data-error-for="date"></p>
       <button type="submit" class="btn btn-primary btn-block quick-save">${t('記録する')}</button>
@@ -69,6 +83,7 @@ export function bindQuickForm(root, categories) {
   const dateInput = form.elements.namedItem('date');
   const catsEl = form.querySelector('[data-cats]');
 
+  ensureMemoList().catch((e) => console.error(e));
   dateInput.value = todayLocal();
   // 並べ替えはしない（設定で並べた順のまま出す）。最後にカテゴリを直すボタンを置く
   catsEl.innerHTML =
@@ -132,6 +147,7 @@ export async function openTransactionSheet(id = null, defaults = {}) {
     memo: defaults.memo ?? '',
   };
   const fixed = row?.source === 'fixed';
+  ensureMemoList().catch((e) => console.error(e));
 
   const sheet = openSheet({
     title: t(row ? '記録を直す' : '記録する'),
@@ -153,7 +169,7 @@ export async function openTransactionSheet(id = null, defaults = {}) {
         }
         <div class="field">
           <label for="f-memo">${t('メモ')} <span class="optional">${t('任意')}</span></label>
-          <input id="f-memo" name="memo" class="input" maxlength="200" value="${esc(v.memo ?? '')}" autocomplete="off">
+          <input id="f-memo" name="memo" class="input" maxlength="200" value="${esc(v.memo ?? '')}" autocomplete="off" list="kb-memos">
           <p class="field-error" data-error-for="memo"></p>
         </div>
         <div class="field">

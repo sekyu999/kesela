@@ -11,6 +11,32 @@ export async function listByMonth(month) {
   return rows.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
+/**
+ * これまでに書いたメモ（新しい順・重複なし）。メモ欄の入力候補に使う
+ */
+export async function recentMemos(limit = 30) {
+  const seen = new Set();
+  const out = [];
+  await db.transactions
+    .orderBy('date')
+    .reverse()
+    .until(() => out.length >= limit)
+    .each((r) => {
+      const m = String(r.memo ?? '').trim();
+      if (!m || seen.has(m)) return;
+      seen.add(m);
+      out.push(m);
+    });
+  return out;
+}
+
+/** 月の範囲の記録（年間グラフ用） */
+export async function listBetween(fromMonth, toMonth) {
+  const from = monthRange(fromMonth).from;
+  const to = monthRange(toMonth).to;
+  return db.transactions.where('date').between(from, to, true, true).toArray();
+}
+
 export function getTransaction(id) {
   return db.transactions.get(id);
 }

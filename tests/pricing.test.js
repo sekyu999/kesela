@@ -21,11 +21,21 @@ test('最新価格から最安店舗を判定する（指示書の例：Bスー�
   assert.deepEqual(r.rows.map((x) => x.cheapest), [true, false, false]);
 });
 
-test('各店舗は最新の記録だけを使う（古い安値は無視）', () => {
+test('同じ店舗の記録も1件ずつ並ぶ（容量違い・銘柄違いを分けて持てる）', () => {
   const r = compareStores([R('A', 150, '2026-01-01'), R('A', 260, '2026-10-01'), R('B', 228, '2026-10-01')]);
-  assert.equal(r.rows.length, 2);
-  assert.equal(r.rows[0].storeId, 'B');
-  assert.equal(r.rows.find((x) => x.storeId === 'A').record.price, 260);
+  assert.equal(r.rows.length, 3);
+  assert.equal(r.rows[0].storeId, 'A');
+  assert.equal(r.rows[0].record.price, 150);
+  assert.deepEqual(r.rows.map((x) => x.cheapest), [true, false, false]);
+});
+
+test('メモは任意。長すぎる時だけエラー', () => {
+  const base = { productId: 'p', storeId: 's', price: '200', quantity: 1, purchasedAt: '2026-10-01' };
+  assert.equal(validatePriceInput({ ...base }, '2026-10-01').value.memo, null);
+  assert.equal(validatePriceInput({ ...base, memo: ' 200gの方 ' }, '2026-10-01').value.memo, '200gの方');
+  const long = validatePriceInput({ ...base, memo: 'あ'.repeat(41) }, '2026-10-01');
+  assert.equal(long.ok, false);
+  assert.ok(long.errors.memo);
 });
 
 test('容量が違う商品は単位価格で比較（1000ml/238円 vs 900ml/218円）', () => {

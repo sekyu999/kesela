@@ -215,4 +215,14 @@ export default {
   // 入力の検証
   '1〜31の日を選んでください': 'Choose a day from 1 to 31',
   始まりの月より後にしてください: 'Must be after the starting month',
+  'なし': 'None',
+  '固定費': 'Fixed costs',
+  '名前をタップすると、その記録の一覧が見られます。': 'Tap a name to see its records.',
+  '件数': 'Records',
+  '合計': 'Total',
+  'この分類の記録はまだありません。': 'No records in this group yet.',
+  'この1年の支出': 'Spending this year',
+  '{month}の支出 {amount}': '{month} spending {amount}',
+  '記録のある月の平均 {amount}': 'Average of months with records {amount}',
+  '{n}件': '{n}',
 };
