@@ -230,8 +230,15 @@ function freeHtml(s) {
  * 区切りの色。固定費は、同じ色番号のカテゴリと混ざらないように明るくする
  */
 function sliceColor(row) {
-  const base = `var(--swatch-${(row.colorIndex ?? 0) + 1})`;
-  return row.fixedCostId ? `color-mix(in srgb, ${base} 52%, #fff)` : base;
+  return `var(--swatch-${(row.colorIndex ?? 0) + 1})`;
+}
+
+/** 凡例の丸。固定費は同じ色のまま斜線を重ねて見分ける */
+function dotStyle(row) {
+  const c = sliceColor(row);
+  return row.fixedCostId
+    ? `background:${c};background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.62) 0 1.6px,transparent 1.6px 4px)`
+    : `background:${c}`;
 }
 
 /** 1つ分の円グラフ（名前を輪の中に出す） */
@@ -239,11 +246,13 @@ function donutSvg(rows, label) {
   const slices = donutSlices(rows);
   // 半径 15.9155 の円は一周がちょうど 100。長さをそのまま割合（％）として使える
   const R = 15.9155;
+  // 固定費は同じ色のまま、上から斜線のパターンを重ねて見分けられるようにする
   const ring = slices
-    .map(
-      (s) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${sliceColor(s)}"
-        stroke-width="10" stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"></circle>`
-    )
+    .map((s) => {
+      const dash = `stroke-dasharray="${s.length} ${100 - s.length}" stroke-dashoffset="${-s.offset}"`;
+      const arc = (stroke) => `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${stroke}" stroke-width="10" ${dash}></circle>`;
+      return arc(sliceColor(s)) + (s.fixedCostId ? arc('url(#kb-fx-stripe)') : '');
+    })
     .join('');
   const labels = slices
     .filter((s) => s.ratio >= 0.12)
@@ -267,6 +276,11 @@ function donutSvg(rows, label) {
 /** 何に使ったか：変動費だけと、固定費も入れた全体を横に並べる */
 function donutsHtml(varCats, allCats, s) {
   return `<section class="card">
+    <svg class="kb-defs" aria-hidden="true" focusable="false"><defs>
+      <pattern id="kb-fx-stripe" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="2" stroke="#fff" stroke-opacity="0.62" stroke-width="0.9"></line>
+      </pattern>
+    </defs></svg>
     <div class="kb-donuts">
       ${donutSvg(varCats, t('固定費を除く'))}
       ${donutSvg(allCats, t('固定費込み'))}
@@ -274,7 +288,7 @@ function donutsHtml(varCats, allCats, s) {
     <ul class="kb-legend">
       ${allCats
         .map(
-          (c) => `<li><span class="kb-dot" style="background:${sliceColor(c)}"></span>
+          (c) => `<li><span class="kb-dot" style="${dotStyle(c)}"></span>
             <span class="grow">${esc(c.name)}${c.fixedCostId ? `<span class="badge badge-muted">${t('固定')}</span>` : ''}</span>
             <span class="kb-legend-pct">${Math.round(c.ratio * 100)}%</span>
             <strong>${money(c.amount)}</strong></li>`

@@ -1197,6 +1197,8 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .kb-per { margin-left: 1px; font-size: var(--fz-sub); font-weight: 400; color: var(--text-sub); }
 
 /* 円グラフを2つ並べる（固定費を除く／固定費込み） */
+/* 円グラフの模様（固定費の斜線）の定義置き場。描画はしない */
+.kb-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .kb-donuts { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
 .kb-donut-one { flex: 1 1 0; min-width: 0; margin: 0; text-align: center; }
 .kb-donut-one .kb-donut { width: 100%; max-width: 160px; height: auto; }

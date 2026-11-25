@@ -25,7 +25,7 @@ import { compareStores } from '../domain/pricing.js';
 import { storeBadgeHtml } from '../ui/storeBadge.js';
 import { shortage } from '../domain/product.js';
 import { openPriceSheet } from './priceSheet.js';
-import { openProductPriceSheet } from './prices.js';
+import { mountProductPrices } from './prices.js';
 import { esc } from '../lib/util.js';
 import { t } from '../lib/i18n.js';
 
@@ -212,25 +212,25 @@ function openItemSheet(item, state) {
       ${
         isTemp ? categorySelect(state.categories, item.categoryId) : ''
       }
+      ${item.productId ? '<div class="stack" data-prices style="margin-top:18px"></div>' : ''}
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block">${t('保存')}</button>
-        ${item.productId ? `<button type="button" class="btn btn-block" data-prices>${t('お店ごとの価格')}</button>` : ''}
         <button type="button" class="btn-danger-text" data-remove>${t('今回は買わない（リストから削除）')}</button>
       </div>
     </form>`;
-  const sheet = openSheet({ title: item.name, body });
+  let stopPrices = null;
+  const sheet = openSheet({ title: item.name, body, onClose: () => stopPrices?.() });
   const form = sheet.el.querySelector('form');
   bindSteppers(form);
+  // 商品に紐づく項目なら、お店ごとの価格をその場で見て直せるようにする
+  const priceBox = form.querySelector('[data-prices]');
+  if (priceBox) stopPrices = mountProductPrices(priceBox, item.productId, { addClass: 'btn btn-block' });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = formValues(form);
     await updateItem(item.id, isTemp ? v : { quantity: v.quantity });
     sheet.close();
-  });
-  form.querySelector('[data-prices]')?.addEventListener('click', () => {
-    sheet.close();
-    openProductPriceSheet(item.productId);
   });
   form.querySelector('[data-remove]').addEventListener('click', async () => {
     const undo = await removeItem(item.id);

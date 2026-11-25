@@ -138,17 +138,12 @@ function renderCompare(body) {
 }
 
 /** 商品の価格詳細（店舗ごとの価格。買い物リストからも開く） */
-export async function openProductPriceSheet(productId) {
-  const product = await getProduct(productId);
-  if (!product) return;
-  let stop = null;
-  const sheet = openSheet({
-    title: t('{name}の価格', { name: product.name }),
-    body: '<div class="stack" id="price-detail"></div>',
-    onClose: () => stop?.(),
-  });
-  const box = sheet.el.querySelector('#price-detail');
-
+/**
+ * 店舗ごとの価格の一覧（編集・追加つき）を、渡した箱の中に描く部品。
+ * 価格タブの詳細シートと、買い物リストの項目シートの両方から使う。
+ * 戻り値は購読をやめる関数。
+ */
+export function mountProductPrices(box, productId, { onMissing, addClass = 'btn btn-primary btn-block' } = {}) {
   box.addEventListener('click', async (e) => {
     if (e.target.closest('[data-record-add]')) {
       openPriceSheet({ productId });
@@ -166,10 +161,13 @@ export async function openProductPriceSheet(productId) {
     }
   });
 
-  stop = watch(
+  return watch(
     () => Promise.all([listByProduct(productId), listStores(), getProduct(productId)]),
     ([records, stores, p]) => {
-      if (!p) return sheet.close();
+      if (!p) {
+        onMissing?.();
+        return;
+      }
       const unit = esc(t(p.inventoryUnit));
       const storeName = new Map(stores.map((s) => [s.id, s.name]));
       const cmp = compareStores(records);
@@ -183,7 +181,6 @@ export async function openProductPriceSheet(productId) {
             : '';
 
       box.innerHTML = `
-        <button type="button" class="btn btn-primary btn-block" data-record-add>${t('＋ 価格を記録')}</button>
         ${
           cmp.mode === 'none'
             ? `<p class="placeholder">${t('まだ記録がありません。')}</p>`
@@ -209,9 +206,22 @@ export async function openProductPriceSheet(productId) {
             </ul>
             <p class="note" style="margin-top:6px">${modeNote}</p>
           </section>`
-        }`;
+        }
+        <button type="button" class="${addClass}" data-record-add>${t('＋ 価格を記録')}</button>`;
     }
   );
+}
+
+export async function openProductPriceSheet(productId) {
+  const product = await getProduct(productId);
+  if (!product) return;
+  let stop = null;
+  const sheet = openSheet({
+    title: t('{name}の価格', { name: product.name }),
+    body: '<div class="stack" id="price-detail"></div>',
+    onClose: () => stop?.(),
+  });
+  stop = mountProductPrices(sheet.el.querySelector('#price-detail'), productId, { onMissing: () => sheet.close() });
 }
 
 /** 比べ方の説明文で使う見出し（100gあたり・1個あたり）。英語では per 100g・per pc */
