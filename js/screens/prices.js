@@ -6,7 +6,7 @@ import { watch } from '../ui/live.js';
 import { openSheet } from '../ui/sheet.js';
 import { showErrors, bindErrorClear, formValues } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
-import { listProducts, getProduct, saveProductOrder, ValidationError } from '../data/productRepo.js';
+import { listProducts, getProduct, saveProductOrder, deleteProduct, countRelated, ValidationError } from '../data/productRepo.js';
 import {
   listStores,
   getStore,
@@ -243,11 +243,37 @@ export async function openProductPriceSheet(productId) {
   const product = await getProduct(productId);
   if (!product) return;
   let stop = null;
+  // 在庫を管理しない商品は在庫タブに出てこないので、ここから消せるようにする
+  const canDelete = product.trackStock === false;
   const sheet = openSheet({
     title: t('{name}の価格', { name: product.name }),
-    body: '<div class="stack" id="price-detail"></div>',
+    body: `<div class="stack" id="price-detail"></div>
+      ${
+        canDelete
+          ? `<div class="form-actions"><button type="button" class="btn-danger-text" data-del-product>${t('この商品を削除')}</button></div>`
+          : ''
+      }`,
     onClose: () => stop?.(),
   });
+
+  sheet.el.querySelector('[data-del-product]')?.addEventListener('click', async () => {
+    const rel = await countRelated(productId);
+    const extra = [];
+    if (rel.listItems) extra.push(t('買い物リストの項目 {n}件', { n: rel.listItems }));
+    if (rel.priceRecords) extra.push(t('価格の記録 {n}件', { n: rel.priceRecords }));
+    const msg =
+      t('「{name}」を削除しますか？', { name: product.name }) +
+      (extra.length ? '\n' + t('{items}も一緒に削除されます。', { items: extra.join(t('、')) }) : '') +
+      '\n' +
+      t('この操作は取り消せません。');
+    if (!window.confirm(msg)) return;
+    stop?.();
+    stop = null;
+    await deleteProduct(productId);
+    sheet.close();
+    toast(t('削除しました'));
+  });
+
   stop = mountProductPrices(sheet.el.querySelector('#price-detail'), productId, { onMissing: () => sheet.close() });
 }
 
